@@ -42,7 +42,6 @@ From the app repo, find:
 
 - **App name and bundle id.** Look in the Xcode project, `app.json` /
   `app.config.*` (Expo), or `Info.plist`.
-- **App icon PNG** for the previewer's store page mock.
 - **A Release simulator build.** Look for the newest
   `~/Library/Developer/Xcode/DerivedData/<App>-*/Build/Products/Release-iphonesimulator/<App>.app`.
   If only Debug exists, build Release: a Debug build needs Metro and paints

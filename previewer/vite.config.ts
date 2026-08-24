@@ -15,7 +15,7 @@ const OUT_DIR = process.env.GILDED_CONFIG
 const EXPORT_ZIP = join(OUT_DIR, "export.zip");
 
 /**
- * `out/web` is the static root: the manifest, the icon, the bezel art and
+ * `out/web` is the static root: the manifest, the bezel art and
  * symlinks to the raw captures and finished assets, all served from `/`.
  * Nothing is copied into the previewer, so a re-run of `gilded capture` shows
  * up on reload. Run `gilded manifest` first; the directory does not exist

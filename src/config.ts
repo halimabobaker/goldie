@@ -70,8 +70,6 @@ export type StoreListing = {
   subtitle: Record<Locale, string>;
   developer: string;
   category: string;
-  /** App icon PNG relative to the config file. */
-  icon: string;
   /** Shown in the ratings row; purely cosmetic. */
   rating: number;
   ratingCount: string;

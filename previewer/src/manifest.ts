@@ -52,7 +52,6 @@ export type StoreManifest = {
     subtitle: Record<string, string>;
     developer: string;
     category: string;
-    icon: string;
     rating: number;
     ratingCount: string;
     ageRating: string;

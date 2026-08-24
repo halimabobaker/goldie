@@ -62,8 +62,8 @@ video" toggle because it takes some minutes. The CLI has the same overrides:
 `--background` and `--frame`. They apply to one run only. `gilded.config.ts`
 stays the source of truth.
 
-The app reads `out/web/`: the manifest, the app icon, and symlinks to the
-finished assets. `out/raw` and `out/stage` are outside it. Because of this,
+The app reads `out/web/`: the manifest and symlinks to the finished
+assets. `out/raw` and `out/stage` are outside it. Because of this,
 `bun run previewer:build` makes a small deployable `previewer/dist`. The static
 build has no API. It is a viewer only.
 

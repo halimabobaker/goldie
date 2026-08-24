@@ -40,7 +40,6 @@ const config: GildedConfig = {
     subtitle: { "en-US": "Under 30 characters" },
     developer: "Company Name",
     category: "Productivity",
-    icon: `${APP_ROOT}/assets/icon.png`,
     rating: 4.8, // cosmetic, previewer only
     ratingCount: "1.2K Ratings",
     ageRating: "4+",

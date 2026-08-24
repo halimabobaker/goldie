@@ -14,8 +14,8 @@ import {
 import type { CaptureManifest } from "./capture.ts";
 
 /**
- * `out/web/` - the previewer's static root. It holds the manifest, the app
- * icon, the bezel art, and symlinks to the finished assets and the raw
+ * `out/web/` - the previewer's static root. It holds the manifest, the
+ * bezel art, and symlinks to the finished assets and the raw
  * captures. The raw captures and bezels are what the previewer composites in
  * the browser (instant background/frame changes); the finished files under
  * screenshots/ and previews/ are what an export zips up.
@@ -31,7 +31,6 @@ export type StoreManifest = {
     subtitle: Record<string, string>;
     developer: string;
     category: string;
-    icon: string;
     rating: number;
     ratingCount: string;
     ageRating: string;
@@ -94,7 +93,6 @@ export const WEB_DIR = "web";
 export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   const webDir = join(cfg.outDir, WEB_DIR);
   await mkdir(webDir, { recursive: true });
-  await copyFile(resolve(cfg.root, cfg.store.icon), join(webDir, "icon.png"));
   await link(join(cfg.outDir, "screenshots"), join(webDir, "screenshots"));
   await link(join(cfg.outDir, "previews"), join(webDir, "previews"));
   await link(join(cfg.outDir, "raw"), join(webDir, "raw"));
@@ -139,7 +137,7 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   const previewScene = cfg.scenes.find(isPreview);
   const manifest: StoreManifest = {
     generatedAt: new Date().toISOString(),
-    app: { ...cfg.store, icon: "icon.png" },
+    app: { ...cfg.store },
     devices: cfg.devices.map((key) => ({
       key,
       label: DEVICES[key].label,
