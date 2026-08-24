@@ -23,7 +23,7 @@ export type DeviceSpec = {
 export const DEVICES: Record<DeviceKey, DeviceSpec> = {
   "iphone-6.9": {
     label: "6.9",
-    simulatorName: "iPhone 16 Pro Max",
+    simulatorName: "iPhone 17 Pro Max",
     native: { width: 1320, height: 2868 },
     screenshot: { width: 1320, height: 2868 },
     preview: { width: 886, height: 1920 },
