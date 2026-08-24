@@ -31,7 +31,10 @@ export function Sidebar({
   return (
     <aside className="flex w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-black/10 bg-white/70 p-6 dark:border-white/10 dark:bg-neutral-950/60">
       <div className="flex items-center justify-between">
-        <h1 className="text-[15px] font-semibold">{manifest.app.name}</h1>
+        <h1 className="text-[15px] font-semibold">
+          <span aria-hidden="true">✨ </span>
+          <span className="gilded-wordmark">gilded</span>
+        </h1>
         <button
           onClick={() => onDark(!dark)}
           aria-label={dark ? "Switch to light appearance" : "Switch to dark appearance"}
