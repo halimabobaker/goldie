@@ -1,8 +1,12 @@
 node_modules
-out/raw
 .DS_Store
 .argent/
 previewer/node_modules
 previewer/dist
-out/web
 *.tsbuildinfo
+
+# Generated assets: screenshots, previews, staged frames, export bundles
+out/
+
+# Argent flows are app-specific recordings
+flows/*.yaml
