@@ -8,7 +8,11 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import type { ServerResponse } from "node:http";
 
 const GILDED_ROOT = resolve(import.meta.dirname, "..");
-const EXPORT_ZIP = join(GILDED_ROOT, "out", "export.zip");
+// GILDED_CONFIG points at a config outside this repo; out/ lives next to it.
+const OUT_DIR = process.env.GILDED_CONFIG
+  ? join(resolve(process.env.GILDED_CONFIG), "..", "out")
+  : join(GILDED_ROOT, "out");
+const EXPORT_ZIP = join(OUT_DIR, "export.zip");
 
 /**
  * `out/web` is the static root: the manifest, the icon, the bezel art and
@@ -20,8 +24,8 @@ const EXPORT_ZIP = join(GILDED_ROOT, "out", "export.zip");
  */
 export default defineConfig({
   plugins: [react(), tailwindcss(), gildedApi()],
-  publicDir: resolve(import.meta.dirname, "../out/web"),
-  server: { port: 4321, open: true, fs: { allow: [GILDED_ROOT] } },
+  publicDir: join(OUT_DIR, "web"),
+  server: { port: 4321, open: true, fs: { allow: [GILDED_ROOT, OUT_DIR] } },
 });
 
 /**
@@ -96,7 +100,7 @@ function gildedApi(): Plugin {
             }
             res.write("$ zip screenshots + previews\n");
             await rm(EXPORT_ZIP, { force: true });
-            await run("zip", ["-r", "-q", EXPORT_ZIP, "screenshots", "previews"], join(GILDED_ROOT, "out"), res);
+            await run("zip", ["-r", "-q", EXPORT_ZIP, "screenshots", "previews"], OUT_DIR, res);
             res.write("[done]\n");
           } catch (err) {
             res.write(`[failed] ${err instanceof Error ? err.message : err}\n`);

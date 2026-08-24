@@ -108,7 +108,18 @@ export type LoadedConfig = GildedConfig & {
   outDir: string;
 };
 
-export async function loadConfig(path = resolve(process.cwd(), "gilded.config.ts")): Promise<LoadedConfig> {
+/**
+ * Default config path: the GILDED_CONFIG env var when set, else
+ * ./gilded.config.ts. The env var lets a config live in the app's own repo
+ * while gilded and its previewer run from this checkout.
+ */
+export function defaultConfigPath(): string {
+  return process.env.GILDED_CONFIG
+    ? resolve(process.env.GILDED_CONFIG)
+    : resolve(process.cwd(), "gilded.config.ts");
+}
+
+export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConfig> {
   if (!existsSync(path)) throw new Error(`No config at ${path}`);
   const mod = await import(path);
   const cfg: GildedConfig = mod.default ?? mod.config;
