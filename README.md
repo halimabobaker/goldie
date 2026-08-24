@@ -16,15 +16,21 @@ gilded manifest   Write out/web/store.json for the previewer
 gilded all        capture -> frame -> preview -> manifest -> verify
 ```
 
-All app-specific data is in `gilded.config.ts` and `flows/`. Both are
-untracked; copy `gilded.config.example.ts` to start. Set `GILDED_CONFIG` to use
-a config in another directory, for example in the app's own repo; `out/` is
-created next to the config file.
+All app-specific data is in `gilded.config.ts`, which is untracked; copy
+`gilded.config.example.ts` to start. Set `GILDED_CONFIG` to use a config in
+another directory, for example in the app's own repo; `out/` is created next to
+the config file.
+
+The scenes point at argent flows in the app repo's `.argent/flows`, by the same
+name `argent flow run <name>` takes. gilded and argent share one flow store, so
+a flow recorded with `argent` replays here unchanged and a marketing flow stays
+runnable on its own. Set `flowsDir` in the config to keep them somewhere else.
 
 ## Install the skill
 
 The repo has a Claude skill in `skills/gilded/`. The skill explores the app on
-a simulator, writes the flows and the config, runs the pipeline, and opens the
+a simulator, writes the flows into `.argent/flows` and the config, runs the
+pipeline, and opens the
 previewer. Install it with the [skills.sh](https://skills.sh) CLI:
 
 ```
@@ -103,7 +109,8 @@ FLOW FAILED  scene "issues"
 ```
 
 Claude can fix the flow over argent MCP (`describe`, `flow-start-recording`,
-`flow-add-step`). Commit the corrected YAML and review it. Prefer `text:` and
+`flow-add-step`), which writes straight into `.argent/flows`. Commit the
+corrected YAML and review it. Prefer `text:` and
 `id:` selectors. Coordinate selectors drift between device sizes.
 
 ## Gotchas

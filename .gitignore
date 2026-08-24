@@ -10,6 +10,3 @@ gilded.config.ts
 
 # Generated assets: screenshots, previews, staged frames, export bundles
 out/
-
-# Argent flows are app-specific recordings
-flows/*.yaml

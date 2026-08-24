@@ -2,16 +2,20 @@ import type { GildedConfig } from "./src/config.ts";
 
 /**
  * Template. Copy to gilded.config.ts (here or in the app's own repo) and fill
- * in the app's values. Everything app-specific lives in the config and its
- * flows/ directory; every relative path resolves against the config file, and
- * out/ is created next to it. Point gilded at a config in another directory
- * with the GILDED_CONFIG env var.
+ * in the app's values. Every relative path resolves against the config file,
+ * and out/ is created next to it. Point gilded at a config in another
+ * directory with the GILDED_CONFIG env var.
+ *
+ * Scene flows are argent flows: they live in the app repo's .argent/flows and
+ * are named the way `argent flow run <name>` names them, so a flow recorded
+ * with argent replays here unchanged. Set flowsDir to keep them elsewhere.
  */
 
 const APP_ROOT = "/absolute/path/to/the/app/repo";
 
 const config: GildedConfig = {
   appRoot: APP_ROOT,
+  // flowsDir: ".argent/flows" under appRoot by default.
   // Release simulator build. A Debug build needs Metro and paints LogBox
   // banners into the captures.
   appPath: `${process.env.HOME}/Library/Developer/Xcode/DerivedData/<App>-<hash>/Build/Products/Release-iphonesimulator/<App>.app`,
@@ -49,11 +53,12 @@ const config: GildedConfig = {
 
   scenes: [
     // One entry per screenshot, in store-page order. The flow navigates to the
-    // screen; gilded takes the screenshot after its last step.
+    // screen; gilded takes the screenshot after its last step. Flow values are
+    // argent flow names under .argent/flows (a path under it also works).
     {
       kind: "screenshot",
       id: "home",
-      flow: "flows/01-home.yaml",
+      flow: "store-01-home",
       headline: { "en-US": "Benefit-led headline" },
       subhead: { "en-US": "One short sentence expanding the headline." },
     },
@@ -67,12 +72,12 @@ const config: GildedConfig = {
       segments: [
         {
           id: "open",
-          flow: "flows/preview-01-open.yaml",
+          flow: "store-preview-01-open",
           caption: { "en-US": "Your work, in one place" },
         },
         {
           id: "act",
-          flow: "flows/preview-02-act.yaml",
+          flow: "store-preview-02-act",
           caption: { "en-US": "Do the core thing" },
           holdSeconds: 2,
         },

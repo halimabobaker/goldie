@@ -2,7 +2,9 @@
 
 One file holds everything app-specific. It exports a `GildedConfig` (type from
 `$GILDED/src/config.ts`). Every relative path in it resolves against the config
-file itself, and `out/` is created next to it.
+file itself, and `out/` is created next to it. Scene flows are the exception:
+they are argent flow names resolved against `flowsDir`, which defaults to
+`.argent/flows` inside `appRoot`.
 
 ## Annotated example
 
@@ -48,13 +50,16 @@ const config: GildedConfig = {
     description: { "en-US": "Two or three short paragraphs, store voice." },
   },
 
+  // flowsDir: "../.argent/flows" by default, resolved from appRoot. Every
+  // scene names a flow there, the way `argent flow run <name>` does.
+
   scenes: [
     // One entry per screenshot, in store-page order. The first two tiles are
     // what most visitors ever see, so lead with the strongest screens.
     {
       kind: "screenshot",
       id: "issues",
-      flow: "flows/01-issues.yaml",
+      flow: "store-01-issues",
       headline: { "en-US": "Every issue, one list" },
       subhead: { "en-US": "Grouped by status, sorted the way your team works." },
       // background: "..."  optional per-scene override
@@ -67,9 +72,9 @@ const config: GildedConfig = {
       kind: "preview",
       id: "preview",
       segments: [
-        { id: "open",    flow: "flows/preview-01-open.yaml",    caption: { "en-US": "Your work, in one place" } },
-        { id: "compose", flow: "flows/preview-02-compose.yaml", caption: { "en-US": "File an issue in seconds" } },
-        { id: "create",  flow: "flows/preview-03-create.yaml",  caption: { "en-US": "Straight back to the list" }, holdSeconds: 2 },
+        { id: "open",    flow: "store-preview-01-open",    caption: { "en-US": "Your work, in one place" } },
+        { id: "compose", flow: "store-preview-02-compose", caption: { "en-US": "File an issue in seconds" } },
+        { id: "create",  flow: "store-preview-03-create",  caption: { "en-US": "Straight back to the list" }, holdSeconds: 2 },
       ],
     },
   ],

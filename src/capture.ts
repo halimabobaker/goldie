@@ -4,7 +4,7 @@ import * as argent from "./argent.ts";
 import * as device from "./device.ts";
 import { execOrThrow } from "./exec.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
-import { isPreview, isScreenshot, type LoadedConfig, type PreviewScene } from "./config.ts";
+import { flowPath, isPreview, isScreenshot, type LoadedConfig, type PreviewScene } from "./config.ts";
 import { FlowFailure } from "./repair.ts";
 
 /**
@@ -56,8 +56,8 @@ export async function capture(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<
 
   for (const scene of cfg.scenes.filter(isScreenshot)) {
     console.log(`  screenshot ${scene.id}`);
-    const report = await runFlow(resolve(cfg.root, scene.flow), udid);
-    if (!report.ok) throw new FlowFailure(scene.id, scene.flow, udid, report);
+    const report = await runFlow(flowPath(cfg, scene.flow), udid);
+    if (!report.ok) throw new FlowFailure(scene.id, flowPath(cfg, scene.flow), udid, report);
 
     // The flow runner pins and then restores the status bar around a run, so it
     // is re-pinned per capture rather than once at setup. The settle matters:
@@ -120,8 +120,8 @@ async function captureSegments(
     let failure: FlowFailure | null = null;
     let stopped: { video: string; durationMs: number } | null = null;
     try {
-      const report = await runFlow(resolve(cfg.root, segment.flow), udid);
-      if (!report.ok) failure = new FlowFailure(`${scene.id}/${segment.id}`, segment.flow, udid, report);
+      const report = await runFlow(flowPath(cfg, segment.flow), udid);
+      if (!report.ok) failure = new FlowFailure(`${scene.id}/${segment.id}`, flowPath(cfg, segment.flow), udid, report);
       if (segment.holdSeconds) await sleep(segment.holdSeconds * 1000);
     } finally {
       // Stop even on failure, or the next segment cannot start a recording.

@@ -4,7 +4,7 @@ import { exec } from "./exec.ts";
 import * as argent from "./argent.ts";
 import * as device from "./device.ts";
 import { DEVICES } from "./specs.ts";
-import type { LoadedConfig } from "./config.ts";
+import { flowPath, type LoadedConfig } from "./config.ts";
 
 type Check = { name: string; ok: boolean; detail: string; fix?: string; warnOnly?: boolean };
 
@@ -90,11 +90,18 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     });
   }
 
+  checks.push({
+    name: "flows dir",
+    ok: existsSync(cfg.flowsDir),
+    detail: cfg.flowsDir,
+    fix: `mkdir -p ${cfg.flowsDir}   (or set flowsDir in gilded.config.ts)`,
+  });
+
   for (const scene of cfg.scenes) {
     const flows = scene.kind === "preview" ? scene.segments.map((s) => s.flow) : [scene.flow];
     for (const f of flows) {
-      const path = resolve(cfg.root, f);
-      checks.push({ name: `flow ${f}`, ok: existsSync(path), detail: path, fix: "Author it, or fix the path in gilded.config.ts" });
+      const path = flowPath(cfg, f);
+      checks.push({ name: `flow ${f}`, ok: existsSync(path), detail: path, fix: "Record or author it under the flows dir, or fix the name in gilded.config.ts" });
     }
   }
 

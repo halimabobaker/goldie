@@ -13,7 +13,7 @@ export type Locale = string;
 export type ScreenshotScene = {
   kind: "screenshot";
   id: string;
-  /** Flow YAML relative to the config file. Its final step captures the screenshot. */
+  /** Flow in the app's `.argent/flows`: a name ("home") or a path under it ("gilded/home.yaml"). Its final step captures the screenshot. */
   flow: string;
   /** Headline per locale. */
   headline: Record<Locale, string>;
@@ -36,7 +36,7 @@ export type PreviewScene = {
   id: string;
   segments: Array<{
     id: string;
-    /** Flow YAML relative to the config file. */
+    /** Flow in the app's `.argent/flows`, same forms as a screenshot scene's. */
     flow: string;
     caption: Record<Locale, string>;
     /** Hold the last frame this long after the flow ends, in seconds. */
@@ -79,8 +79,15 @@ export type StoreListing = {
 };
 
 export type GildedConfig = {
-  /** Absolute path to the app repo. Only used for messages and for locating the build. */
+  /** Absolute path to the app repo. Holds `.argent/flows`; also used for messages and for locating the build. */
   appRoot: string;
+  /**
+   * Where the scene flows live. Defaults to `.argent/flows` inside `appRoot`,
+   * so gilded and argent share one flow store: anything recorded with
+   * `argent flow record` is replayable here by name, and vice versa. An
+   * absolute path or a path relative to the config file overrides it.
+   */
+  flowsDir?: string;
   /** Simulator .app bundle to install. */
   appPath: string;
   bundleId: string;
@@ -103,6 +110,8 @@ export type GildedConfig = {
 export type LoadedConfig = GildedConfig & {
   /** Directory the config file lives in; every relative path resolves against it. */
   root: string;
+  /** Absolute directory the scene flows resolve against. */
+  flowsDir: string;
   outDir: string;
 };
 
@@ -123,7 +132,12 @@ export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConf
   const cfg: GildedConfig = mod.default ?? mod.config;
   if (!cfg) throw new Error(`${path} has no default export`);
   const root = dirname(path);
-  const loaded: LoadedConfig = { ...cfg, root, outDir: resolve(root, "out") };
+  const loaded: LoadedConfig = {
+    ...cfg,
+    root,
+    flowsDir: cfg.flowsDir ? resolve(root, cfg.flowsDir) : resolve(cfg.appRoot, ".argent/flows"),
+    outDir: resolve(root, "out"),
+  };
   framePath(loaded); // fail at load time on a bad variant or missing bezel PNG
   return loaded;
 }
@@ -150,6 +164,15 @@ export function framePath(cfg: LoadedConfig): string {
   }
   if (!existsSync(file)) throw new Error(`Frame image not found: ${file}`);
   return file;
+}
+
+/**
+ * Absolute path to a scene's flow YAML. A name or a relative path resolves
+ * against `flowsDir`; `.yaml` is added when the value has no extension.
+ */
+export function flowPath(cfg: LoadedConfig, flow: string): string {
+  const file = flow.endsWith(".yaml") || flow.endsWith(".yml") ? flow : `${flow}.yaml`;
+  return resolve(cfg.flowsDir, file);
 }
 
 export const isPreview = (s: Scene): s is PreviewScene => s.kind === "preview";

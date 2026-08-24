@@ -72,15 +72,22 @@ will need as selectors, and normalized coordinates for anything with no label
 
 ## Step 3: Author the config and flows
 
-Create a `gilded/` directory in the app repo:
+The flows are argent flows and belong in the app's own flow store, next to any
+flow already recorded there. The config sits in a `gilded/` directory:
 
 ```
-<app-repo>/gilded/
-├── gilded.config.ts
-└── flows/
-    ├── 01-<scene>.yaml ...        one per screenshot scene
-    └── preview-01-<segment>.yaml  one per preview segment
+<app-repo>/
+├── .argent/flows/
+│   ├── store-01-<scene>.yaml ...        one per screenshot scene
+│   └── store-preview-01-<segment>.yaml  one per preview segment
+└── gilded/gilded.config.ts
 ```
+
+A scene names its flow the way `argent flow run <name>` does: `flow:
+"store-01-home"` runs `.argent/flows/store-01-home.yaml`. Prefix the marketing
+flows so they read apart from the app's test flows, and reuse an existing flow
+by name when one already reaches the screen. `flowsDir` in the config overrides
+the location; the default is `.argent/flows` under `appRoot`.
 
 Read `references/config.md` for the config schema, an annotated example, and
 copywriting guidance. Read `references/flows.md` for the flow YAML vocabulary
@@ -91,6 +98,10 @@ them benefit-led and short.
 Everything renders relative to the config file: output lands in
 `<app-repo>/gilded/out/`. Add `gilded/out/` to the app's `.gitignore`, and
 commit `gilded.config.ts` and the flows.
+
+Because they are plain argent flows, each one is runnable on its own with
+`argent flow run store-01-home` from the app repo, which is the fastest way to
+check a flow before a full capture.
 
 ## Step 4: Doctor, then capture
 

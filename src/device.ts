@@ -59,24 +59,62 @@ export async function shutdown(udid: string): Promise<void> {
  * transport pointed at a simulator that no longer exists (every later launch
  * then fails its native-devtools handshake).
  */
-export async function pinKeyboardAndLocale(udid: string, locale: string): Promise<void> {
-  const language = locale.split("-")[0];
-  const prefs = join(
+type Pref = { domain: string; key: string; write: string[]; expect: string };
+
+function keyboardAndLocalePrefs(locale: string): Pref[] {
+  const language = locale.split("-")[0]!;
+  const off = (domain: string, key: string): Pref => ({
+    domain,
+    key,
+    write: ["-bool", "false"],
+    expect: "0",
+  });
+  return [
+    off("com.apple.Preferences", "KeyboardAutocorrection"),
+    off("com.apple.Preferences", "KeyboardPrediction"),
+    off("com.apple.Preferences", "KeyboardAutocapitalization"),
+    off("com.apple.keyboard.preferences", "KeyboardAutocorrection"),
+    off("com.apple.keyboard.preferences", "KeyboardPrediction"),
+    {
+      domain: ".GlobalPreferences",
+      key: "AppleLocale",
+      write: ["-string", locale.replace("-", "_")],
+      expect: locale.replace("-", "_"),
+    },
+    {
+      domain: ".GlobalPreferences",
+      key: "AppleLanguages",
+      write: ["-array", language],
+      expect: `(${language})`,
+    },
+  ];
+}
+
+function prefsDir(udid: string): string {
+  return join(
     homedir(),
     "Library/Developer/CoreSimulator/Devices",
     udid,
     "data/Library/Preferences",
   );
-  const write = (domain: string, args: string[]) =>
-    execOrThrow("defaults", ["write", join(prefs, domain), ...args]);
+}
 
-  await write("com.apple.Preferences", ["KeyboardAutocorrection", "-bool", "false"]);
-  await write("com.apple.Preferences", ["KeyboardPrediction", "-bool", "false"]);
-  await write("com.apple.Preferences", ["KeyboardAutocapitalization", "-bool", "false"]);
-  await write("com.apple.keyboard.preferences", ["KeyboardAutocorrection", "-bool", "false"]);
-  await write("com.apple.keyboard.preferences", ["KeyboardPrediction", "-bool", "false"]);
-  await write(".GlobalPreferences", ["AppleLocale", "-string", locale.replace("-", "_")]);
-  await write(".GlobalPreferences", ["AppleLanguages", "-array", language]);
+export async function pinKeyboardAndLocale(udid: string, locale: string): Promise<void> {
+  const dir = prefsDir(udid);
+  for (const pref of keyboardAndLocalePrefs(locale)) {
+    await execOrThrow("defaults", ["write", join(dir, pref.domain), pref.key, ...pref.write]);
+  }
+}
+
+/** Does the device's preference store already hold every pinned value? */
+async function keyboardAndLocalePinned(udid: string, locale: string): Promise<boolean> {
+  const dir = prefsDir(udid);
+  for (const pref of keyboardAndLocalePrefs(locale)) {
+    const r = await exec("defaults", ["read", join(dir, pref.domain), pref.key], { quiet: true });
+    if (r.code !== 0) return false;
+    if (r.stdout.replace(/\s+/g, "") !== pref.expect) return false;
+  }
+  return true;
 }
 
 /**
@@ -106,13 +144,34 @@ export async function setAppearance(udid: string, appearance: "light" | "dark"):
   await execOrThrow("xcrun", ["simctl", "ui", udid, "appearance", appearance]);
 }
 
-/** Shut the device down, pin its preferences, boot it into a known state. */
+/** Is the device booted right now? */
+async function isBooted(udid: string): Promise<boolean> {
+  const byRuntime = await simctlDevices();
+  for (const list of Object.values(byRuntime)) {
+    const hit = list.find((d) => d.udid === udid);
+    if (hit) return hit.state === "Booted";
+  }
+  return false;
+}
+
+/**
+ * Bring the device to a known state, reusing the running simulator when it is
+ * already in one. A reboot is only worth its cost when the preference store
+ * needs rewriting: preferences are read at process start, so a booted device
+ * whose keyboard and locale are already pinned needs nothing but the appearance
+ * and status bar applied. Rebooting also drops argent's transport session, so
+ * an unnecessary one costs a tool-server restart on top of the boot itself.
+ */
 export async function prepare(udid: string, locale: string, appearance: "light" | "dark"): Promise<void> {
-  await argent.run("stop-simulator-server", { udid }).catch(() => {});
-  await shutdown(udid);
-  await pinKeyboardAndLocale(udid, locale);
-  await boot(udid);
-  await argent.restartServer();
+  const booted = await isBooted(udid);
+  if (!booted || !(await keyboardAndLocalePinned(udid, locale))) {
+    if (booted) console.log("  rebooting to pin the keyboard and locale");
+    await argent.run("stop-simulator-server", { udid }).catch(() => {});
+    await shutdown(udid);
+    await pinKeyboardAndLocale(udid, locale);
+    await boot(udid);
+    await argent.restartServer();
+  }
   await setAppearance(udid, appearance);
   await pinStatusBar(udid);
 }

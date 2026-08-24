@@ -1,12 +1,25 @@
 # Authoring argent flows for gilded
 
-Flows are argent YAML replayed with `argent flow run` on a booted simulator.
-They run with no LLM, so every step must be deterministic. gilded handles the
+Flows are argent YAML in the app repo's `.argent/flows`, replayed with
+`argent flow run` on a booted simulator. gilded refers to them by name, so
+`flow: "store-01-issues"` runs `.argent/flows/store-01-issues.yaml` and you can
+run that same flow by hand from the app repo while authoring it.
+
+Flows run with no LLM, so every step must be deterministic. gilded handles the
 surrounding machinery for you: before any flow it shuts the simulator down,
 disables autocorrect, boots, pins the status bar, and reinstalls the app with
 cleared data, so every run starts from the same empty state.
 
 ## Step vocabulary
+
+**Rule: `executionPrerequisite` and a leading `launch:` step are mutually
+exclusive.** A flow that starts with `launch:` launches and controls its own
+starting state, so `flow-execute` rejects any `executionPrerequisite` on it.
+Only give a flow `executionPrerequisite` when its first step is NOT `launch:`
+— i.e. it assumes a state a prior flow/segment left behind (preview segments
+after the first one are the normal case). Every screenshot scene flow and a
+preview's first segment starts with `launch:` and therefore must NOT have
+`executionPrerequisite`.
 
 ```yaml
 executionPrerequisite: >-        # top-level, preview segments mostly: the state
@@ -52,8 +65,11 @@ steps:
   (a populated list, a created item), the flow must create it, or the app must
   seed demo data on first launch. Check how the app behaves on a fresh install
   before assuming content exists.
-- **Mine `.argent/flows/` in the app repo.** Selectors and coordinates that
-  already replay there are proven; copy them instead of rediscovering.
+- **Mine the flows already in `.argent/flows`.** Selectors and coordinates that
+  already replay there are proven; copy them instead of rediscovering, or point
+  a scene straight at an existing flow when one reaches the screen.
+- **Prefix marketing flows** (`store-…`) so they stay distinct from the app's
+  test flows in the same directory.
 
 ## Screenshot flows
 
@@ -99,5 +115,5 @@ example `no element matched selector text="All issues"`. Repair loop:
 3. Correct the YAML, keeping the echo comments truthful.
 4. Re-run `capture` and confirm the flow passes.
 
-Commit corrected flows to the app repo; they are the durable record of how to
-reach each marketed screen.
+Commit corrected flows with the app's other flows in `.argent/flows`; they are
+the durable record of how to reach each marketed screen.
