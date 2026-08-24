@@ -75,8 +75,10 @@ build has no API. It is a viewer only.
 
 ## How a run works
 
-1. **prepare** - Shut the simulator down. Set the language. Turn off keyboard
-   autocorrect. Boot. Set the appearance. Pin the status bar.
+1. **prepare** - Reuse the booted simulator. Only when it is shut down, or
+   when its keyboard and locale are not pinned yet, shut it down, set the
+   language, turn off keyboard autocorrect, and boot. Then set the appearance
+   and pin the status bar.
 2. **install** - Reinstall the app and clear its data. Each run then starts
    from the same empty state. This makes a re-capture deterministic.
 3. **capture** - Replay each flow with `argent flow run`. A screenshot scene
@@ -124,9 +126,11 @@ corrected YAML and review it. Prefer `text:` and
   Both are off here. Trimming breaks real-time pacing. The touch pulse does not
   belong in a marketing video.
 - **A simulator reboot breaks argent's transport session.** Each later `launch`
-  step then fails. `prepare` restarts the tool-server after boot.
-- **Simulator autocorrect changes typed text.** Turn preferences off in the
-  shut-down device's store, before boot.
+  step then fails. `prepare` restarts the tool-server after a boot, and skips
+  the reboot altogether when the device is already booted and pinned.
+- **Simulator autocorrect changes typed text.** Preferences are read at process
+  start, so they go into the shut-down device's store, before boot. That is the
+  one thing a reboot is still spent on.
 - **Use a Release build.** A Debug build needs Metro and paints LogBox banners
   into the captures. `doctor` warns when `appPath` points at
   `Debug-iphonesimulator`.

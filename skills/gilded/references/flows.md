@@ -6,9 +6,10 @@ Flows are argent YAML in the app repo's `.argent/flows`, replayed with
 run that same flow by hand from the app repo while authoring it.
 
 Flows run with no LLM, so every step must be deterministic. gilded handles the
-surrounding machinery for you: before any flow it shuts the simulator down,
-disables autocorrect, boots, pins the status bar, and reinstalls the app with
-cleared data, so every run starts from the same empty state.
+surrounding machinery for you: before any flow it pins the status bar and
+reinstalls the app with cleared data, so every run starts from the same empty
+state. A simulator that is already booted keeps running; it is only shut down
+and rebooted when its keyboard and locale preferences still need pinning.
 
 ## Step vocabulary
 
