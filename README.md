@@ -17,7 +17,20 @@ gilded all        capture -> frame -> preview -> manifest -> verify
 ```
 
 All app-specific data is in `gilded.config.ts` and `flows/`. The example config
-targets Beacon (`~/Dev/argent-task-plannning`).
+targets Beacon (`~/Dev/argent-task-plannning`). Set `GILDED_CONFIG` to use a
+config in another directory; `out/` is created next to the config file.
+
+## Install the skill
+
+The repo has a Claude skill in `skills/gilded/`. The skill explores the app on
+a simulator, writes the flows and the config, runs the pipeline, and opens the
+previewer. Install it with the [skills.sh](https://skills.sh) CLI:
+
+```
+npx skills add kacperkapusciak/gilded
+```
+
+Then ask Claude from the app repo: "create App Store screenshots using gilded".
 
 ## Output
 
