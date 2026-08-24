@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* The appearance toggle sets .dark on <html>; without this, `dark:` would
+   follow the OS instead and the toggle would do nothing. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: -apple-system, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  /* App Store blue, the accent on every Get button and link. */
+  --color-store-blue: #007aff;
+  --color-store-blue-dark: #0a84ff;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
