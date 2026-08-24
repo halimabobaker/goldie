@@ -1,31 +1,37 @@
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import { spawn } from "node:child_process";
+import { rm } from "node:fs/promises";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import type { ServerResponse } from "node:http";
 
 const GILDED_ROOT = resolve(import.meta.dirname, "..");
+const EXPORT_ZIP = join(GILDED_ROOT, "out", "export.zip");
 
 /**
- * `out/web` is the static root: the manifest, the icon and symlinks to the
- * finished screenshots and previews, all served from `/`. Nothing is copied
- * into the previewer, so a re-run of `gilded all` shows up on reload - and a
- * `vite build` picks up only publishable assets, not the raw captures.
- * Run `gilded manifest` first; the directory does not exist before that.
+ * `out/web` is the static root: the manifest, the icon, the bezel art and
+ * symlinks to the raw captures and finished assets, all served from `/`.
+ * Nothing is copied into the previewer, so a re-run of `gilded capture` shows
+ * up on reload. Run `gilded manifest` first; the directory does not exist
+ * before that. `fs.allow` covers the gilded root because the previewer imports
+ * remotion/frame.ts for the shared bezel geometry.
  */
 export default defineConfig({
   plugins: [react(), tailwindcss(), gildedApi()],
   publicDir: resolve(import.meta.dirname, "../out/web"),
-  server: { port: 4321, open: true },
+  server: { port: 4321, open: true, fs: { allow: [GILDED_ROOT] } },
 });
 
 /**
- * POST /api/regenerate - re-runs the render pipeline against the existing raw
- * captures with one-run overrides, streaming the CLI log as plain text.
- * Body: { background?: string, frame?: string, video?: boolean }.
- * The response ends with "[done]" on success or "[failed]" otherwise, which
- * is what the UI keys off. Dev server only; a built dist stays static.
+ * POST /api/export - renders the final assets from the raw captures with the
+ * chosen background and frame (gilded frame + preview + manifest), zips
+ * out/screenshots and out/previews, and streams the CLI log as plain text.
+ * Body: { background?: string, frame?: string }.
+ * The response ends with "[done]" on success or "[failed]" otherwise; on
+ * "[done]" the UI downloads GET /api/export/download. Dev server only; a
+ * built dist stays static.
  */
 function gildedApi(): Plugin {
   let busy = false;
@@ -33,7 +39,22 @@ function gildedApi(): Plugin {
   return {
     name: "gilded-api",
     configureServer(server: ViteDevServer) {
-      server.middlewares.use("/api/regenerate", (req, res) => {
+      server.middlewares.use("/api/export", (req, res) => {
+        if (req.method === "GET" && req.url === "/download") {
+          if (!existsSync(EXPORT_ZIP)) {
+            res.statusCode = 404;
+            res.end("No export yet. POST /api/export first.");
+            return;
+          }
+          res.writeHead(200, {
+            "Content-Type": "application/zip",
+            "Content-Length": statSync(EXPORT_ZIP).size,
+            "Content-Disposition": 'attachment; filename="appstore-assets.zip"',
+            "Cache-Control": "no-store",
+          });
+          createReadStream(EXPORT_ZIP).pipe(res);
+          return;
+        }
         if (req.method !== "POST") {
           res.statusCode = 405;
           res.end("POST only");
@@ -41,7 +62,7 @@ function gildedApi(): Plugin {
         }
         if (busy) {
           res.statusCode = 409;
-          res.end("A regeneration is already running.");
+          res.end("An export is already running.");
           return;
         }
         busy = true;
@@ -49,7 +70,7 @@ function gildedApi(): Plugin {
         let body = "";
         req.on("data", (chunk) => (body += chunk));
         req.on("end", async () => {
-          let opts: { background?: string; frame?: string; video?: boolean };
+          let opts: { background?: string; frame?: string };
           try {
             opts = JSON.parse(body || "{}");
           } catch {
@@ -68,12 +89,14 @@ function gildedApi(): Plugin {
             "Cache-Control": "no-store",
           });
 
-          const commands = ["frame", ...(opts.video ? ["preview"] : []), "manifest"];
           try {
-            for (const command of commands) {
+            for (const command of ["frame", "preview", "manifest"]) {
               res.write(`$ gilded ${command}\n`);
-              await run(["src/cli.ts", command, ...flags], res);
+              await run("bun", ["src/cli.ts", command, ...flags], GILDED_ROOT, res);
             }
+            res.write("$ zip screenshots + previews\n");
+            await rm(EXPORT_ZIP, { force: true });
+            await run("zip", ["-r", "-q", EXPORT_ZIP, "screenshots", "previews"], join(GILDED_ROOT, "out"), res);
             res.write("[done]\n");
           } catch (err) {
             res.write(`[failed] ${err instanceof Error ? err.message : err}\n`);
@@ -87,9 +110,9 @@ function gildedApi(): Plugin {
   };
 }
 
-function run(args: string[], res: ServerResponse): Promise<void> {
+function run(cmd: string, args: string[], cwd: string, res: ServerResponse): Promise<void> {
   return new Promise((done, fail) => {
-    const child = spawn("bun", args, { cwd: GILDED_ROOT });
+    const child = spawn(cmd, args, { cwd });
     child.stdout.on("data", (d) => res.write(d));
     child.stderr.on("data", (d) => res.write(d));
     child.on("error", fail);

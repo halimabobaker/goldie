@@ -16,3 +16,13 @@ body,
 #root {
   height: 100%;
 }
+
+/* Preview-tile captions fade in as each clip starts, echoing the export's fade. */
+@keyframes caption-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

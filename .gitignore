@@ -5,3 +5,4 @@ out/raw
 previewer/node_modules
 previewer/dist
 out/web
+*.tsbuildinfo

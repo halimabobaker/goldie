@@ -1,71 +1,285 @@
-import { useEffect, useRef, useState } from "react";
-import type { DeviceEntry, LocaleAssets } from "../manifest";
+import { useState, type CSSProperties, type ReactNode } from "react";
+import { layout } from "../../../remotion/frame";
+import type { Design, DeviceCaptures, DeviceEntry, Theme } from "../manifest";
 
 /**
- * The five-up strip: the app preview video followed by the framed
- * screenshots, each tile exactly the finished file. While the video is being
- * re-rendered its tile shows a pulsing skeleton at the same aspect ratio, so
- * the strip does not jump when the new file lands.
+ * The five-up strip, composited in the browser: each tile is the raw device
+ * capture inside the bezel art on the chosen background, laid out with the
+ * exact geometry Remotion uses (remotion/frame.ts), so what you see is what
+ * an export renders. Background and frame arrive as props from React state -
+ * changing them repaints instantly, no CLI involved.
  *
- * Each tile carries its own caption with the file's dimensions; it turns red
- * when the file does not match the size Apple requires for the device, so the
- * warning sits next to the asset it is about.
+ * Every tile is a size-container: the geometry is computed in the device's
+ * spec pixels and expressed in cqw/cqh, so the tile is the composition scaled
+ * down. Captions under the tiles show the spec size the export will produce;
+ * the video's turns red when the clips sum outside Apple's 15-30s window.
  */
 export function Strip({
-  assets,
+  design,
+  captures,
   spec,
-  videoPending,
+  locale,
+  background,
+  frameUrl,
 }: {
-  assets: LocaleAssets;
-  spec: DeviceEntry | undefined;
-  videoPending: boolean;
+  design: Design;
+  captures: DeviceCaptures;
+  spec: DeviceEntry;
+  locale: string;
+  background: string;
+  frameUrl: string;
 }) {
-  const count = assets.screenshots.length + (assets.preview ? 1 : 0);
+  const theme = design.theme;
+
+  // Mirrors the CLI's --background handling: a dark background flips the copy
+  // to light, and per-scene background overrides are dropped, so the export
+  // matches what is on screen.
+  const dark = isDarkBackground(background);
+  const headlineColor = dark ? "#FFFFFF" : theme.headlineColor;
+  const subheadColor = dark ? "#D9E1EA" : theme.subheadColor;
+
+  const shots = design.scenes.flatMap((scene) => {
+    const capture = captures.screenshots.find((s) => s.sceneId === scene.id);
+    return capture ? [{ scene, capture }] : [];
+  });
+
+  const segments =
+    design.preview && captures.clips
+      ? design.preview.segments.flatMap((seg) => {
+          const clip = captures.clips!.find((c) => c.segmentId === seg.id);
+          return clip
+            ? [{ url: clip.url, durationSeconds: clip.durationSeconds, caption: seg.caption[locale] ?? "" }]
+            : [];
+        })
+      : [];
+
+  const count = shots.length + (segments.length > 0 ? 1 : 0);
   if (count === 0) return null;
+
+  const totalSeconds = segments.reduce((s, c) => s + c.durationSeconds, 0);
 
   return (
     <div
       className="grid w-full items-start gap-4"
       style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
     >
-      {assets.preview ? (
+      {segments.length > 0 ? (
         <Tile
-          width={assets.preview.width}
-          height={assets.preview.height}
-          caption={`${assets.preview.width}×${assets.preview.height} · ${assets.preview.durationSeconds.toFixed(1)}s`}
-          bad={
-            spec
-              ? assets.preview.width !== spec.preview.width ||
-                assets.preview.height !== spec.preview.height ||
-                assets.preview.durationSeconds < 15 ||
-                assets.preview.durationSeconds > 30
-              : false
-          }
+          width={spec.preview.width}
+          height={spec.preview.height}
+          caption={`${spec.preview.width}×${spec.preview.height} · ${totalSeconds.toFixed(1)}s`}
+          bad={totalSeconds < 15 || totalSeconds > 30}
+          badReason="Clips sum outside the 15-30s Apple allows for previews."
         >
-          {videoPending ? <Skeleton /> : <Video url={assets.preview.url} />}
+          <PreviewScene
+            spec={spec.preview}
+            theme={theme}
+            background={background}
+            frameUrl={frameUrl}
+            captionColor={headlineColor}
+            segments={segments}
+          />
         </Tile>
       ) : null}
-      {assets.screenshots.map((shot) => (
+
+      {shots.map(({ scene, capture }) => (
         <Tile
-          key={shot.url}
-          width={shot.width}
-          height={shot.height}
-          caption={`${shot.width}×${shot.height}`}
-          bad={
-            spec
-              ? shot.width !== spec.screenshot.width || shot.height !== spec.screenshot.height
-              : false
-          }
+          key={scene.id}
+          width={spec.screenshot.width}
+          height={spec.screenshot.height}
+          caption={`${spec.screenshot.width}×${spec.screenshot.height}`}
+          bad={false}
         >
-          <img
-            src={`/${shot.url}`}
-            alt={shot.sceneId}
-            className="h-full w-full object-cover"
-            draggable={false}
+          <ScreenshotScene
+            spec={spec.screenshot}
+            theme={theme}
+            background={background}
+            frameUrl={frameUrl}
+            headline={scene.headline[locale] ?? ""}
+            subhead={scene.subhead?.[locale]}
+            headlineColor={headlineColor}
+            subheadColor={subheadColor}
+            captureUrl={capture.url}
           />
         </Tile>
       ))}
     </div>
+  );
+}
+
+/**
+ * The composition geometry in container-query units: computed in spec pixels
+ * with the shared layout(), then divided back out, so 1cqw = one percent of
+ * the tile's width exactly as 1px-per-spec-pixel would be at full size.
+ */
+function geometry(spec: { width: number; height: number }, theme: Theme) {
+  const copyHeight = spec.height * theme.copyHeightRatio;
+  const g = layout(spec, theme.deviceWidthRatio, copyHeight, spec.height * 0.03);
+  const w = (v: number) => `${(v / spec.width) * 100}cqw`;
+  const h = (v: number) => `${(v / spec.height) * 100}cqh`;
+  return {
+    copyHeight: h(copyHeight),
+    frame: { left: w(g.frame.left), top: h(g.frame.top), width: w(g.frame.width), height: h(g.frame.height) },
+    screen: {
+      left: w(g.screen.left),
+      top: h(g.screen.top),
+      width: w(g.screen.width),
+      height: h(g.screen.height),
+      borderRadius: w(g.screen.borderRadius),
+    },
+  };
+}
+
+function Canvas({
+  background,
+  fontFamily,
+  children,
+}: {
+  background: string;
+  fontFamily: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="absolute inset-0" style={{ containerType: "size", background, fontFamily }}>
+      {children}
+    </div>
+  );
+}
+
+/** Browser twin of remotion/Screenshot.tsx; keep the numbers in step with it. */
+function ScreenshotScene({
+  spec,
+  theme,
+  background,
+  frameUrl,
+  headline,
+  subhead,
+  headlineColor,
+  subheadColor,
+  captureUrl,
+}: {
+  spec: { width: number; height: number };
+  theme: Theme;
+  background: string;
+  frameUrl: string;
+  headline: string;
+  subhead: string | undefined;
+  headlineColor: string;
+  subheadColor: string;
+  captureUrl: string;
+}) {
+  const g = geometry(spec, theme);
+  return (
+    <Canvas background={background} fontFamily={theme.fontFamily}>
+      <div
+        style={{
+          position: "absolute",
+          inset: "0 0 auto",
+          height: g.copyHeight,
+          padding: "5.5cqh 9cqw 0",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "flex-start",
+          gap: "1.4cqh",
+          textAlign: "center",
+        }}
+      >
+        <h1
+          style={{
+            margin: 0,
+            color: headlineColor,
+            fontSize: "8.2cqw",
+            lineHeight: 1.08,
+            fontWeight: 700,
+            letterSpacing: "-0.16cqw",
+          }}
+        >
+          {headline}
+        </h1>
+        {subhead ? (
+          <p style={{ margin: 0, color: subheadColor, fontSize: "3.8cqw", lineHeight: 1.3, fontWeight: 400 }}>
+            {subhead}
+          </p>
+        ) : null}
+      </div>
+
+      {/* Screen first, bezel on top: the bezel's cutout is transparent. */}
+      <img
+        src={`/${captureUrl}`}
+        alt=""
+        draggable={false}
+        style={{ position: "absolute", ...g.screen, objectFit: "cover" }}
+      />
+      <img src={`/${frameUrl}`} alt="" draggable={false} style={{ position: "absolute", ...g.frame }} />
+    </Canvas>
+  );
+}
+
+/**
+ * Browser twin of remotion/Preview.tsx: plays the raw clips back to back
+ * inside the bezel with the caption fading in per segment. Always muted -
+ * the configured audio bed only exists in the exported video.
+ */
+function PreviewScene({
+  spec,
+  theme,
+  background,
+  frameUrl,
+  captionColor,
+  segments,
+}: {
+  spec: { width: number; height: number };
+  theme: Theme;
+  background: string;
+  frameUrl: string;
+  captionColor: string;
+  segments: Array<{ url: string; durationSeconds: number; caption: string }>;
+}) {
+  const g = geometry(spec, theme);
+  const [index, setIndex] = useState(0);
+  const segment = segments[index % segments.length]!;
+
+  const captionStyle: CSSProperties = {
+    color: captionColor,
+    fontSize: "6.2cqw",
+    fontWeight: 600,
+    lineHeight: 1.15,
+    textAlign: "center",
+    letterSpacing: "-0.12cqw",
+    animation: "caption-fade 300ms ease-out",
+  };
+
+  return (
+    <Canvas background={background} fontFamily={theme.fontFamily}>
+      {/* Remounting on every advance restarts playback even with one clip. */}
+      <video
+        key={index}
+        src={`/${segment.url}`}
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        onEnded={() => setIndex((i) => i + 1)}
+        style={{ position: "absolute", ...g.screen, objectFit: "cover" }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: "0 0 auto",
+          height: g.copyHeight,
+          padding: "0 8cqw",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div key={index} style={captionStyle}>
+          {segment.caption}
+        </div>
+      </div>
+      <img src={`/${frameUrl}`} alt="" draggable={false} style={{ position: "absolute", ...g.frame }} />
+    </Canvas>
   );
 }
 
@@ -74,13 +288,15 @@ function Tile({
   height,
   caption,
   bad,
+  badReason,
   children,
 }: {
   width: number;
   height: number;
   caption: string;
   bad: boolean;
-  children: React.ReactNode;
+  badReason?: string;
+  children: ReactNode;
 }) {
   return (
     <div>
@@ -91,7 +307,7 @@ function Tile({
         {children}
       </div>
       <p
-        title={bad ? "Does not match the size Apple requires for this device." : undefined}
+        title={bad ? badReason : undefined}
         className={`pt-2 text-center text-[11px] tabular-nums ${
           bad ? "font-medium text-red-500" : "text-neutral-400 dark:text-neutral-500"
         }`}
@@ -102,65 +318,19 @@ function Tile({
   );
 }
 
-function Video({ url }: { url: string }) {
-  const video = useRef<HTMLVideoElement>(null);
-  const [muted, setMuted] = useState(true);
-
-  // A new cache-busted url after a regenerate needs an explicit reload.
-  useEffect(() => {
-    video.current?.load();
-    void video.current?.play().catch(() => {});
-  }, [url]);
-
-  return (
-    <>
-      <video
-        ref={video}
-        src={`/${url}`}
-        className="h-full w-full object-cover"
-        muted={muted}
-        loop
-        playsInline
-        autoPlay
-        preload="metadata"
-      />
-      <button
-        onClick={() => setMuted((m) => !m)}
-        className="absolute bottom-2 right-2 grid h-7 w-7 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm"
-        aria-label={muted ? "Unmute" : "Mute"}
-      >
-        <SpeakerIcon muted={muted} />
-      </button>
-    </>
-  );
-}
-
-function Skeleton() {
-  return (
-    <div className="absolute inset-0 grid animate-pulse place-items-center bg-neutral-300 dark:bg-neutral-700">
-      <svg
-        viewBox="0 0 24 24"
-        className="h-8 w-8 text-neutral-400 dark:text-neutral-500"
-        fill="currentColor"
-      >
-        <path d="M8 5v14l11-7z" />
-      </svg>
-    </div>
-  );
-}
-
-function SpeakerIcon({ muted }: { muted: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 9h3l4-3.5v13L7 15H4z" fill="currentColor" stroke="none" />
-      {muted ? (
-        <path d="M15.5 9.5l4 5M19.5 9.5l-4 5" />
-      ) : (
-        <>
-          <path d="M15.5 9a4 4 0 0 1 0 6" />
-          <path d="M18 7a7 7 0 0 1 0 10" />
-        </>
-      )}
-    </svg>
-  );
+/**
+ * Mirror of the CLI's isDarkBackground: mean relative luminance of the
+ * background's hex stops, below 0.5 counts as dark.
+ */
+function isDarkBackground(css: string): boolean {
+  const hexes = css.match(/#[0-9a-fA-F]{6}/g);
+  if (!hexes || hexes.length === 0) return false;
+  const luminance = (hex: string) => {
+    const channel = (offset: number) => {
+      const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length < 0.5;
 }

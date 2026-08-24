@@ -1,27 +1,32 @@
 import type { ReactNode } from "react";
 import type { StoreManifest } from "../manifest";
-import { GeneratePanel } from "./GeneratePanel";
+import { DesignPanel } from "./DesignPanel";
+import { ExportPanel } from "./ExportPanel";
 
 export function Sidebar({
   manifest,
   device,
   locale,
   dark,
+  background,
+  frame,
   onDevice,
   onLocale,
   onDark,
-  onRegenerated,
-  onVideoPending,
+  onBackground,
+  onFrame,
 }: {
   manifest: StoreManifest;
   device: string;
   locale: string;
   dark: boolean;
+  background: string;
+  frame: string;
   onDevice: (v: string) => void;
   onLocale: (v: string) => void;
   onDark: (v: boolean) => void;
-  onRegenerated: () => void;
-  onVideoPending: (v: boolean) => void;
+  onBackground: (v: string) => void;
+  onFrame: (v: string) => void;
 }) {
   return (
     <aside className="flex w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-black/10 bg-white/70 p-6 dark:border-white/10 dark:bg-neutral-950/60">
@@ -36,10 +41,12 @@ export function Sidebar({
         </button>
       </div>
 
-      <GeneratePanel
-        manifest={manifest}
-        onRegenerated={onRegenerated}
-        onVideoPending={onVideoPending}
+      <DesignPanel
+        design={manifest.design}
+        background={background}
+        frame={frame}
+        onBackground={onBackground}
+        onFrame={onFrame}
       />
 
       {manifest.devices.length > 1 ? (
@@ -57,6 +64,10 @@ export function Sidebar({
           <Select value={locale} onChange={onLocale} options={manifest.locales.map((l) => [l, l])} />
         </Field>
       ) : null}
+
+      <div className="mt-auto pt-2">
+        <ExportPanel background={background} frame={frame} />
+      </div>
     </aside>
   );
 }

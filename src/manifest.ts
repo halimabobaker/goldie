@@ -97,6 +97,17 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   await copyFile(resolve(cfg.root, cfg.store.icon), join(webDir, "icon.png"));
   await link(join(cfg.outDir, "screenshots"), join(webDir, "screenshots"));
   await link(join(cfg.outDir, "previews"), join(webDir, "previews"));
+  await link(join(cfg.outDir, "raw"), join(webDir, "raw"));
+
+  // Bezel art the browser composites with; every bundled variant so switching
+  // frames never waits on a server.
+  const framesDir = join(webDir, "frames");
+  await mkdir(framesDir, { recursive: true });
+  for (const variant of FRAME_VARIANTS) {
+    await copyFile(variantFramePath(variant), join(framesDir, `${variant}.png`));
+  }
+  const custom = "variant" in cfg.frame ? null : "frames/custom.png";
+  if (custom) await copyFile(framePath(cfg), join(webDir, custom));
 
   const assets: StoreManifest["assets"] = {};
   for (const deviceKey of cfg.devices) {
@@ -106,6 +117,26 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
     }
   }
 
+  const captures: StoreManifest["design"]["captures"] = {};
+  for (const deviceKey of cfg.devices) {
+    const raw = await readCaptureManifest(cfg, deviceKey);
+    if (!raw) continue;
+    captures[deviceKey] = {
+      screenshots: raw.screenshots.map((s) => ({
+        sceneId: s.sceneId,
+        url: `raw/${deviceKey}/${basename(s.file)}`,
+      })),
+      clips: raw.preview
+        ? raw.preview.clips.map((c) => ({
+            segmentId: c.segmentId,
+            url: `raw/${deviceKey}/${basename(c.file)}`,
+            durationSeconds: c.durationSeconds,
+          }))
+        : null,
+    };
+  }
+
+  const previewScene = cfg.scenes.find(isPreview);
   const manifest: StoreManifest = {
     generatedAt: new Date().toISOString(),
     app: { ...cfg.store, icon: "icon.png" },
@@ -118,16 +149,40 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
     })),
     locales: cfg.locales,
     assets,
-    generation: {
-      background: cfg.theme.background,
+    design: {
+      theme: cfg.theme,
       frameVariant: "variant" in cfg.frame ? cfg.frame.variant : null,
       frameVariants: [...FRAME_VARIANTS],
+      customFrameUrl: custom,
+      scenes: cfg.scenes.filter(isScreenshot).map(({ id, headline, subhead }) => ({
+        id,
+        headline,
+        ...(subhead ? { subhead } : {}),
+      })),
+      preview: previewScene
+        ? {
+            sceneId: previewScene.id,
+            segments: previewScene.segments.map(({ id, caption }) => ({ id, caption })),
+          }
+        : null,
+      captures,
     },
   };
 
   const file = join(webDir, "store.json");
   await writeFile(file, JSON.stringify(manifest, null, 2));
   return file;
+}
+
+async function readCaptureManifest(
+  cfg: LoadedConfig,
+  deviceKey: DeviceKey,
+): Promise<CaptureManifest | null> {
+  try {
+    return JSON.parse(await readFile(join(cfg.outDir, "raw", deviceKey, "manifest.json"), "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 async function collect(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string): Promise<LocaleAssets> {
