@@ -16,9 +16,10 @@ gilded manifest   Write out/web/store.json for the previewer
 gilded all        capture -> frame -> preview -> manifest -> verify
 ```
 
-All app-specific data is in `gilded.config.ts` and `flows/`. The example config
-targets Beacon (`~/Dev/argent-task-plannning`). Set `GILDED_CONFIG` to use a
-config in another directory; `out/` is created next to the config file.
+All app-specific data is in `gilded.config.ts` and `flows/`. Both are
+untracked; copy `gilded.config.example.ts` to start. Set `GILDED_CONFIG` to use
+a config in another directory, for example in the app's own repo; `out/` is
+created next to the config file.
 
 ## Install the skill
 
