@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Design } from "../manifest";
 import { Field, Select } from "./Sidebar";
 
@@ -68,48 +70,38 @@ export function DesignPanel({
   return (
     <div className="flex flex-col gap-5">
       <Field label="Background">
-        <div className="flex rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/10">
-          {(
-            [
-              ["presets", "Presets"],
-              ["custom", "Custom"],
-            ] as Array<[Mode, string]>
-          ).map(([value, label]) => (
-            <button
-              type="button"
-              key={value}
-              onClick={() => setMode(value)}
-              className={`flex-1 rounded-[6px] px-1 py-1 text-[12px] ${
-                mode === value
-                  ? "bg-white shadow-sm dark:bg-neutral-700"
-                  : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="presets" className="flex-1">
+              Presets
+            </TabsTrigger>
+            <TabsTrigger value="custom" className="flex-1">
+              Custom
+            </TabsTrigger>
+          </TabsList>
 
-        <div className="pt-3">
-          {mode === "presets" ? (
+          <TabsContent value="presets" className="pt-2">
             <div className="grid grid-cols-8 gap-1.5">
               {PRESETS.map((preset) => (
                 <button
                   type="button"
                   key={preset.name}
                   title={preset.name}
+                  aria-label={preset.name}
                   onClick={() => onBackground(preset.css)}
                   style={{ background: preset.css }}
                   className={`aspect-square rounded-md ring-1 ${
                     background === preset.css
-                      ? "ring-2 ring-store-blue ring-offset-1 ring-offset-white dark:ring-offset-neutral-950"
-                      : "ring-black/10 dark:ring-white/15"
+                      ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                      : "ring-border"
                   }`}
                 />
               ))}
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
+          </TabsContent>
+
+          <TabsContent value="custom" className="pt-2">
+            <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <ColorInput
                   label="From"
@@ -118,20 +110,19 @@ export function DesignPanel({
                 />
                 <ColorInput label="To" value={to} onChange={(c) => applyGradient(from, c, angle)} />
               </div>
-              <label className="flex items-center gap-2 text-[12px] text-neutral-500">
+              <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
                 <span className="w-12 shrink-0">{angle}°</span>
-                <input
-                  type="range"
+                <Slider
+                  aria-label="Gradient angle"
                   min={0}
                   max={360}
-                  value={angle}
-                  onChange={(e) => applyGradient(from, to, Number(e.target.value))}
-                  className="w-full accent-store-blue"
+                  value={[angle]}
+                  onValueChange={([a]) => applyGradient(from, to, a ?? angle)}
                 />
-              </label>
+              </div>
             </div>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
       </Field>
 
       {design.frameVariants.length > 1 || design.frameVariant === null ? (
@@ -162,12 +153,12 @@ function ColorInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex flex-1 items-center gap-2 text-[12px] text-neutral-500">
+    <label className="flex flex-1 items-center gap-2 text-[12px] text-muted-foreground">
       <input
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-black/10 bg-transparent p-0.5 dark:border-white/15"
+        className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-input bg-transparent p-0.5"
       />
       <span>
         {label}

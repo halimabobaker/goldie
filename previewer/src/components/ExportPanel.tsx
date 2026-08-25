@@ -1,4 +1,6 @@
+import { Loader2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 /**
  * The one place the goldie CLI runs: Export re-renders the screenshots and
@@ -55,32 +57,29 @@ export function ExportPanel({ background, frame }: { background: string; frame: 
 
   return (
     <div className="flex flex-col gap-3">
-      {log !== null && !busy ? <p className="text-[12px] text-red-500">Export failed.</p> : null}
+      {log !== null && !busy ? (
+        <p className="text-[12px] text-destructive">Export failed.</p>
+      ) : null}
 
       {log !== null ? (
         <pre
           ref={logRef}
-          className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-black/[0.06] p-2 text-[10px] leading-relaxed text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
+          className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-2 text-[10px] leading-relaxed text-muted-foreground"
         >
           {log || "Starting…"}
         </pre>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => void exportZip()}
-        disabled={busy}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-store-blue py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-60 dark:bg-store-blue-dark"
-      >
+      <Button className="w-full" onClick={() => void exportZip()} disabled={busy}>
         {busy ? (
           <>
-            <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-white border-t-transparent" />
+            <Loader2Icon className="animate-spin" />
             Exporting…
           </>
         ) : (
           "Export"
         )}
-      </button>
+      </Button>
     </div>
   );
 }

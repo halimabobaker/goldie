@@ -1,4 +1,15 @@
+import { MoonIcon, SunIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  SelectContent,
+  SelectItem,
+  Select as SelectRoot,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import type { StoreManifest } from "../manifest";
 import { DesignPanel } from "./DesignPanel";
 import { ExportPanel } from "./ExportPanel";
@@ -29,20 +40,20 @@ export function Sidebar({
   onFrame: (v: string) => void;
 }) {
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-black/10 bg-white/70 p-6 dark:border-white/10 dark:bg-neutral-950/60">
+    <aside className="flex w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r bg-sidebar p-6 text-sidebar-foreground">
       <div className="flex items-center justify-between">
         <h1 className="text-[15px] font-semibold">
           <span aria-hidden="true">✨ </span>
           <span className="goldie-wordmark">goldie</span>
         </h1>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => onDark(!dark)}
           aria-label={dark ? "Switch to light appearance" : "Switch to dark appearance"}
-          className="grid h-7 w-7 place-items-center rounded-md text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10"
         >
           {dark ? <SunIcon /> : <MoonIcon />}
-        </button>
+        </Button>
       </div>
 
       <DesignPanel
@@ -73,7 +84,8 @@ export function Sidebar({
         </Field>
       ) : null}
 
-      <div className="mt-auto pt-2">
+      <div className="mt-auto flex flex-col gap-4">
+        <Separator />
         <ExportPanel background={background} frame={frame} />
       </div>
     </aside>
@@ -82,14 +94,20 @@ export function Sidebar({
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div>
-      <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+    <div className="flex flex-col gap-2">
+      <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
-      </p>
+      </Label>
       {children}
     </div>
   );
 }
+
+/**
+ * Radix Select treats "" as "no value", so the custom-frame option (an empty
+ * slug) rides on a sentinel that is mapped back on change.
+ */
+const EMPTY = "__none__";
 
 export function Select({
   value,
@@ -101,51 +119,17 @@ export function Select({
   options: Array<[string, string]>;
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-black/10 bg-white px-2 py-1.5 text-[13px] dark:border-white/15 dark:bg-neutral-900"
-    >
-      {options.map(([v, label]) => (
-        <option key={v} value={v}>
-          {label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
-    </svg>
-  );
-}
-
-function SunIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-    </svg>
+    <SelectRoot value={value || EMPTY} onValueChange={(v) => onChange(v === EMPTY ? "" : v)}>
+      <SelectTrigger className="w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(([v, label]) => (
+          <SelectItem key={v} value={v || EMPTY}>
+            {label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </SelectRoot>
   );
 }

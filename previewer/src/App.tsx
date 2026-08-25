@@ -43,7 +43,7 @@ function Loaded({ manifest }: { manifest: StoreManifest }) {
     : (design.customFrameUrl ?? `frames/${design.frameVariants[0]}.png`);
 
   return (
-    <div className="flex h-full bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
+    <div className="flex h-full bg-muted text-foreground">
       <Sidebar
         manifest={manifest}
         device={device}
@@ -80,8 +80,8 @@ function Loaded({ manifest }: { manifest: StoreManifest }) {
 
 function Empty({ message }: { message: string }) {
   return (
-    <div className="grid h-full place-items-center bg-neutral-100 px-10 text-center dark:bg-neutral-900">
-      <p className="max-w-md whitespace-pre-line text-[14px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+    <div className="grid h-full place-items-center bg-muted px-10 text-center">
+      <p className="max-w-md whitespace-pre-line text-[14px] leading-relaxed text-muted-foreground">
         {message}
       </p>
     </div>

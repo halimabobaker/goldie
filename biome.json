@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!out", "!node_modules", "!previewer/node_modules", "!previewer/dist"]
+    "includes": [
+      "**",
+      "!out",
+      "!node_modules",
+      "!previewer/node_modules",
+      "!previewer/dist",
+      "!previewer/src/components/ui"
+    ]
   },
   "formatter": {
     "enabled": true,

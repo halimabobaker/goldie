@@ -7,6 +7,8 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 
+const SRC_DIR = resolve(import.meta.dirname, "src");
+
 const GOLDIE_ROOT = resolve(import.meta.dirname, "..");
 // GOLDIE_CONFIG points at a config outside this repo; out/ lives next to it.
 const OUT_DIR = process.env.GOLDIE_CONFIG
@@ -24,6 +26,7 @@ const EXPORT_ZIP = join(OUT_DIR, "export.zip");
  */
 export default defineConfig({
   plugins: [react(), tailwindcss(), goldieApi()],
+  resolve: { alias: { "@": SRC_DIR } },
   publicDir: join(OUT_DIR, "web"),
   server: { port: 4321, open: true, fs: { allow: [GOLDIE_ROOT, OUT_DIR] } },
 });
