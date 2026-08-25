@@ -72,7 +72,9 @@ export async function loadManifest(): Promise<StoreManifest> {
   }
   const manifest: StoreManifest = await res.json();
   if (!manifest.design) {
-    throw new Error("out/store.json predates browser-side composition. Re-run: bun src/cli.ts manifest");
+    throw new Error(
+      "out/store.json predates browser-side composition. Re-run: bun src/cli.ts manifest",
+    );
   }
 
   // Raw captures keep their names across a re-capture, so the manifest's

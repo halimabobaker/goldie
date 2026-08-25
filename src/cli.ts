@@ -1,11 +1,17 @@
 #!/usr/bin/env bun
-import { loadConfig, framePath, isScreenshot, type LoadedConfig, type FrameVariant } from "./config.ts";
 import { capture } from "./capture.ts";
-import { renderScreenshots, renderPreview, verify } from "./render.ts";
+import {
+  type FrameVariant,
+  framePath,
+  isScreenshot,
+  type LoadedConfig,
+  loadConfig,
+} from "./config.ts";
+import * as device from "./device.ts";
 import { doctor } from "./doctor.ts";
 import { writeManifest } from "./manifest.ts";
+import { renderPreview, renderScreenshots, verify } from "./render.ts";
 import { FlowFailure, repairBrief } from "./repair.ts";
-import * as device from "./device.ts";
 import type { DeviceKey } from "./specs.ts";
 
 const USAGE = `
@@ -40,7 +46,9 @@ async function main() {
     return 0;
   }
 
-  const cfg = await loadConfig(opt("config") ? Bun.resolveSync(opt("config")!, process.cwd()) : undefined);
+  const cfg = await loadConfig(
+    opt("config") ? Bun.resolveSync(opt("config")!, process.cwd()) : undefined,
+  );
 
   // One-run overrides, used by the previewer's regenerate endpoint. The config
   // file stays the source of truth; copy a value there to keep it.

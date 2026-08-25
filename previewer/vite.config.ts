@@ -1,11 +1,11 @@
-import { defineConfig, type Plugin, type ViteDevServer } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import { resolve, join } from "node:path";
 import { spawn } from "node:child_process";
-import { rm } from "node:fs/promises";
 import { createReadStream, existsSync, statSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import type { ServerResponse } from "node:http";
+import { join, resolve } from "node:path";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 
 const GOLDIE_ROOT = resolve(import.meta.dirname, "..");
 // GOLDIE_CONFIG points at a config outside this repo; out/ lives next to it.

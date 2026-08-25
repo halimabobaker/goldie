@@ -1,11 +1,11 @@
-import { mkdir, writeFile, readFile, stat, rm } from "node:fs/promises";
-import { join, resolve, basename } from "node:path";
-import { createCanvas, loadImage, type CanvasGradient, type SKRSContext2D } from "@napi-rs/canvas";
-import { execOrThrow, exec } from "./exec.ts";
-import { DEVICES, PREVIEW, SCREENSHOT_PIXEL_FORMAT, type DeviceKey } from "./specs.ts";
-import { framePath, isPreview, isScreenshot, type LoadedConfig } from "./config.ts";
-import { layout } from "./frame.ts";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
+import { type CanvasGradient, createCanvas, loadImage, type SKRSContext2D } from "@napi-rs/canvas";
 import type { CaptureManifest } from "./capture.ts";
+import { framePath, isPreview, isScreenshot, type LoadedConfig } from "./config.ts";
+import { exec, execOrThrow } from "./exec.ts";
+import { layout } from "./frame.ts";
+import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
 
 async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<CaptureManifest> {
   const file = join(cfg.outDir, "raw", deviceKey, "manifest.json");
@@ -31,63 +31,90 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
 
   const { width, height } = spec.screenshot;
   const copyHeight = height * cfg.theme.copyHeightRatio;
-  const { frame, screen } = layout({ width, height }, cfg.theme.deviceWidthRatio, copyHeight, height * 0.03);
+  const { frame, screen } = layout(
+    { width, height },
+    cfg.theme.deviceWidthRatio,
+    copyHeight,
+    height * 0.03,
+  );
 
   const scenes = cfg.scenes.filter(isScreenshot);
-  return Promise.all(scenes.map(async (scene, index) => {
-    const shot = manifest.screenshots.find((s) => s.sceneId === scene.id);
-    if (!shot) throw new Error(`Scene "${scene.id}" is in the config but not in the capture manifest.`);
-    console.log(`  frame ${scene.id}`);
+  return Promise.all(
+    scenes.map(async (scene, index) => {
+      const shot = manifest.screenshots.find((s) => s.sceneId === scene.id);
+      if (!shot)
+        throw new Error(`Scene "${scene.id}" is in the config but not in the capture manifest.`);
+      console.log(`  frame ${scene.id}`);
 
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = paint(ctx, scene.background ?? cfg.theme.background, width, height);
-    ctx.fillRect(0, 0, width, height);
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = paint(ctx, scene.background ?? cfg.theme.background, width, height);
+      ctx.fillRect(0, 0, width, height);
 
-    // Copy block: headline, then the subhead, centred inside the copy area.
-    const padX = width * 0.09;
-    let y = height * 0.055;
-    y = drawText(ctx, {
-      text: pick(scene.headline, locale, scene.id, "headline"),
-      font: `700 ${width * 0.082}px ${cfg.theme.fontFamily}`,
-      color: cfg.theme.headlineColor,
-      lineHeight: 1.08,
-      letterSpacing: -width * 0.0016,
-      x: width / 2, y, maxWidth: width - 2 * padX,
-    });
-    if (scene.subhead) {
-      drawText(ctx, {
-        text: pick(scene.subhead, locale, scene.id, "subhead"),
-        font: `400 ${width * 0.038}px ${cfg.theme.fontFamily}`,
-        color: cfg.theme.subheadColor,
-        lineHeight: 1.3,
-        letterSpacing: 0,
-        x: width / 2, y: y + height * 0.014, maxWidth: width - 2 * padX,
+      // Copy block: headline, then the subhead, centred inside the copy area.
+      const padX = width * 0.09;
+      let y = height * 0.055;
+      y = drawText(ctx, {
+        text: pick(scene.headline, locale, scene.id, "headline"),
+        font: `700 ${width * 0.082}px ${cfg.theme.fontFamily}`,
+        color: cfg.theme.headlineColor,
+        lineHeight: 1.08,
+        letterSpacing: -width * 0.0016,
+        x: width / 2,
+        y,
+        maxWidth: width - 2 * padX,
       });
-    }
+      if (scene.subhead) {
+        drawText(ctx, {
+          text: pick(scene.subhead, locale, scene.id, "subhead"),
+          font: `400 ${width * 0.038}px ${cfg.theme.fontFamily}`,
+          color: cfg.theme.subheadColor,
+          lineHeight: 1.3,
+          letterSpacing: 0,
+          x: width / 2,
+          y: y + height * 0.014,
+          maxWidth: width - 2 * padX,
+        });
+      }
 
-    // Screen first, bezel on top: the bezel's cutout is transparent.
-    const capture = await loadImage(shot.file);
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.borderRadius);
-    ctx.clip();
-    const scale = Math.max(screen.width / capture.width, screen.height / capture.height);
-    const w = capture.width * scale;
-    const h = capture.height * scale;
-    ctx.drawImage(capture, screen.left + (screen.width - w) / 2, screen.top + (screen.height - h) / 2, w, h);
-    ctx.restore();
-    ctx.drawImage(bezel, frame.left, frame.top, frame.width, frame.height);
+      // Screen first, bezel on top: the bezel's cutout is transparent.
+      const capture = await loadImage(shot.file);
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.borderRadius);
+      ctx.clip();
+      const scale = Math.max(screen.width / capture.width, screen.height / capture.height);
+      const w = capture.width * scale;
+      const h = capture.height * scale;
+      ctx.drawImage(
+        capture,
+        screen.left + (screen.width - w) / 2,
+        screen.top + (screen.height - h) / 2,
+        w,
+        h,
+      );
+      ctx.restore();
+      ctx.drawImage(bezel, frame.left, frame.top, frame.width, frame.height);
 
-    // App Store rejects screenshots carrying an alpha channel, and the canvas
-    // always encodes RGBA, so ffmpeg strips it on the way out.
-    const raw = join(outDir, `.${scene.id}.rgba.png`);
-    await writeFile(raw, await canvas.encode("png"));
-    const final = join(outDir, `${String(index + 1).padStart(2, "0")}-${scene.id}.png`);
-    await execOrThrow("ffmpeg", ["-y", "-loglevel", "error", "-i", raw, "-pix_fmt", SCREENSHOT_PIXEL_FORMAT, final]);
-    await rm(raw, { force: true });
-    return final;
-  }));
+      // App Store rejects screenshots carrying an alpha channel, and the canvas
+      // always encodes RGBA, so ffmpeg strips it on the way out.
+      const raw = join(outDir, `.${scene.id}.rgba.png`);
+      await writeFile(raw, await canvas.encode("png"));
+      const final = join(outDir, `${String(index + 1).padStart(2, "0")}-${scene.id}.png`);
+      await execOrThrow("ffmpeg", [
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        raw,
+        "-pix_fmt",
+        SCREENSHOT_PIXEL_FORMAT,
+        final,
+      ]);
+      await rm(raw, { force: true });
+      return final;
+    }),
+  );
 }
 
 /**
@@ -96,7 +123,16 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
  */
 function drawText(
   ctx: SKRSContext2D,
-  o: { text: string; font: string; color: string; lineHeight: number; letterSpacing: number; x: number; y: number; maxWidth: number },
+  o: {
+    text: string;
+    font: string;
+    color: string;
+    lineHeight: number;
+    letterSpacing: number;
+    x: number;
+    y: number;
+    maxWidth: number;
+  },
 ): number {
   ctx.font = o.font;
   ctx.fillStyle = o.color;
@@ -135,7 +171,12 @@ function drawText(
  * with an optional angle / `to <side>` and color stops with optional
  * percentages. Anything else is handed to the canvas as-is.
  */
-function paint(ctx: SKRSContext2D, css: string, width: number, height: number): string | CanvasGradient {
+function paint(
+  ctx: SKRSContext2D,
+  css: string,
+  width: number,
+  height: number,
+): string | CanvasGradient {
   const m = css.trim().match(/^linear-gradient\((.*)\)$/s);
   if (!m) return css;
   const parts = splitTopLevel(m[1]!);
@@ -162,7 +203,12 @@ function paint(ctx: SKRSContext2D, css: string, width: number, height: number): 
   const length = Math.abs(width * Math.sin(rad)) + Math.abs(height * Math.cos(rad));
   const dx = (Math.sin(rad) * length) / 2;
   const dy = (-Math.cos(rad) * length) / 2;
-  const gradient = ctx.createLinearGradient(width / 2 - dx, height / 2 - dy, width / 2 + dx, height / 2 + dy);
+  const gradient = ctx.createLinearGradient(
+    width / 2 - dx,
+    height / 2 - dy,
+    width / 2 + dx,
+    height / 2 + dy,
+  );
 
   const stops = parts.map((p) => {
     const s = p.trim().match(/^(.*?)(?:\s+(-?\d+(?:\.\d+)?)%)?$/);
@@ -214,11 +260,13 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   const scene = cfg.scenes.find(isPreview);
   if (!scene) return null;
   const manifest = await readManifest(cfg, deviceKey);
-  if (!manifest.preview) throw new Error("No preview clips in the capture manifest. Run: goldie capture");
+  if (!manifest.preview)
+    throw new Error("No preview clips in the capture manifest. Run: goldie capture");
 
   const clips = scene.segments.map((segment) => {
     const clip = manifest.preview!.clips.find((c) => c.segmentId === segment.id);
-    if (!clip) throw new Error(`Segment "${segment.id}" is in the config but not in the capture manifest.`);
+    if (!clip)
+      throw new Error(`Segment "${segment.id}" is in the config but not in the capture manifest.`);
     return clip;
   });
 
@@ -243,15 +291,38 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
 
   console.log(`  render preview (${seconds.toFixed(1)}s)`);
   await execOrThrow("ffmpeg", [
-    "-y", "-loglevel", "error",
-    "-f", "concat", "-safe", "0", "-i", list,
+    "-y",
+    "-loglevel",
+    "error",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    list,
     ...audio,
-    "-map", "0:v:0", "-map", "1:a:0",
+    "-map",
+    "0:v:0",
+    "-map",
+    "1:a:0",
     // Cover the upload size and crop the sliver the aspect ratios disagree on.
-    "-vf", `scale=${width}:${height}:force_original_aspect_ratio=increase:flags=lanczos,crop=${width}:${height},fps=${PREVIEW.fps},format=yuv420p`,
-    "-c:v", "libx264", "-profile:v", "high", "-b:v", PREVIEW.videoBitrate,
-    "-c:a", "aac", "-b:a", PREVIEW.audioBitrate, "-ar", String(PREVIEW.audioSampleRate),
-    "-shortest", "-movflags", "+faststart",
+    "-vf",
+    `scale=${width}:${height}:force_original_aspect_ratio=increase:flags=lanczos,crop=${width}:${height},fps=${PREVIEW.fps},format=yuv420p`,
+    "-c:v",
+    "libx264",
+    "-profile:v",
+    "high",
+    "-b:v",
+    PREVIEW.videoBitrate,
+    "-c:a",
+    "aac",
+    "-b:a",
+    PREVIEW.audioBitrate,
+    "-ar",
+    String(PREVIEW.audioSampleRate),
+    "-shortest",
+    "-movflags",
+    "+faststart",
     final,
   ]);
   await rm(list, { force: true });
@@ -261,19 +332,32 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
 
 function pick(map: Record<string, string>, locale: string, sceneId: string, field: string): string {
   const value = map[locale];
-  if (value === undefined) throw new Error(`Scene "${sceneId}" has no ${field} for locale "${locale}".`);
+  if (value === undefined)
+    throw new Error(`Scene "${sceneId}" has no ${field} for locale "${locale}".`);
   return value;
 }
 
 /** Compares finished assets against the Apple spec table and prints a report. */
-export async function verify(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string): Promise<boolean> {
+export async function verify(
+  cfg: LoadedConfig,
+  deviceKey: DeviceKey,
+  locale: string,
+): Promise<boolean> {
   const spec = DEVICES[deviceKey];
   let ok = true;
 
   const shotDir = join(cfg.outDir, "screenshots", spec.label, locale);
   const shots = await exec("sh", ["-c", `ls ${shotDir}/*.png 2>/dev/null`], { quiet: true });
   for (const file of shots.stdout.split("\n").filter(Boolean)) {
-    const r = await execOrThrow("sips", ["-g", "pixelWidth", "-g", "pixelHeight", "-g", "hasAlpha", file]);
+    const r = await execOrThrow("sips", [
+      "-g",
+      "pixelWidth",
+      "-g",
+      "pixelHeight",
+      "-g",
+      "hasAlpha",
+      file,
+    ]);
     const width = Number(r.stdout.match(/pixelWidth:\s*(\d+)/)?.[1]);
     const height = Number(r.stdout.match(/pixelHeight:\s*(\d+)/)?.[1]);
     const alpha = /hasAlpha:\s*yes/.test(r.stdout);
@@ -290,9 +374,13 @@ export async function verify(cfg: LoadedConfig, deviceKey: DeviceKey, locale: st
   const videos = await exec("sh", ["-c", `ls ${previewDir}/*.mp4 2>/dev/null`], { quiet: true });
   for (const file of videos.stdout.split("\n").filter(Boolean)) {
     const r = await execOrThrow("ffprobe", [
-      "-v", "error", "-show_entries",
+      "-v",
+      "error",
+      "-show_entries",
       "stream=codec_type,codec_name,width,height,avg_frame_rate,sample_rate,channels:format=duration",
-      "-of", "json", file,
+      "-of",
+      "json",
+      file,
     ]);
     const probe = JSON.parse(r.stdout);
     const video = probe.streams.find((s: any) => s.codec_type === "video");
@@ -302,12 +390,23 @@ export async function verify(cfg: LoadedConfig, deviceKey: DeviceKey, locale: st
     const bytes = (await stat(file)).size;
 
     const checks: Array<[string, boolean, string]> = [
-      ["size", video?.width === spec.preview.width && video?.height === spec.preview.height,
-        `${video?.width}x${video?.height} (need ${spec.preview.width}x${spec.preview.height})`],
+      [
+        "size",
+        video?.width === spec.preview.width && video?.height === spec.preview.height,
+        `${video?.width}x${video?.height} (need ${spec.preview.width}x${spec.preview.height})`,
+      ],
       ["codec", video?.codec_name === "h264", String(video?.codec_name)],
       ["fps", fps <= PREVIEW.fps + 0.01, fps.toFixed(2)],
-      ["duration", duration >= PREVIEW.minSeconds && duration <= PREVIEW.maxSeconds, `${duration.toFixed(1)}s`],
-      ["audio", Boolean(audio) && audio.codec_name === "aac", audio ? `${audio.codec_name} ${audio.sample_rate}Hz` : "none"],
+      [
+        "duration",
+        duration >= PREVIEW.minSeconds && duration <= PREVIEW.maxSeconds,
+        `${duration.toFixed(1)}s`,
+      ],
+      [
+        "audio",
+        Boolean(audio) && audio.codec_name === "aac",
+        audio ? `${audio.codec_name} ${audio.sample_rate}Hz` : "none",
+      ],
       ["filesize", bytes <= PREVIEW.maxBytes, `${(bytes / 1024 / 1024).toFixed(1)} MB`],
     ];
     for (const [name, good, detail] of checks) {

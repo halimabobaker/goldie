@@ -1,11 +1,17 @@
-import { mkdir, writeFile, copyFile } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import * as argent from "./argent.ts";
+import {
+  flowPath,
+  isPreview,
+  isScreenshot,
+  type LoadedConfig,
+  type PreviewScene,
+} from "./config.ts";
 import * as device from "./device.ts";
 import { execOrThrow } from "./exec.ts";
-import { DEVICES, type DeviceKey } from "./specs.ts";
-import { flowPath, isPreview, isScreenshot, type LoadedConfig, type PreviewScene } from "./config.ts";
 import { FlowFailure } from "./repair.ts";
+import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /**
  * A cold start after a reinstall can outrun argent's native-devtools handshake
@@ -73,11 +79,7 @@ export async function capture(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<
     await device.pinStatusBar(udid);
     await sleep(400);
     const file = join(rawDir, `${scene.id}.png`);
-    await argent.runToFile(
-      "screenshot",
-      { udid, scale: 1.0, includeImageInContext: false },
-      file,
-    );
+    await argent.runToFile("screenshot", { udid, scale: 1.0, includeImageInContext: false }, file);
     await assertSize(file, spec.native.width, spec.native.height);
     manifest.screenshots.push({ sceneId: scene.id, file });
   }
@@ -121,13 +123,21 @@ async function captureSegments(
     let stopped: { video: string; durationMs: number } | null = null;
     try {
       const report = await runFlow(flowPath(cfg, segment.flow), udid);
-      if (!report.ok) failure = new FlowFailure(`${scene.id}/${segment.id}`, flowPath(cfg, segment.flow), udid, report);
+      if (!report.ok)
+        failure = new FlowFailure(
+          `${scene.id}/${segment.id}`,
+          flowPath(cfg, segment.flow),
+          udid,
+          report,
+        );
       if (segment.holdSeconds) await sleep(segment.holdSeconds * 1000);
     } finally {
       // Stop even on failure, or the next segment cannot start a recording.
       // `--out` only handles image results, so the mp4 is copied off the path
       // the tool materialized it to.
-      stopped = await argent.run<{ video: string; durationMs: number }>("screen-recording-stop", { udid });
+      stopped = await argent.run<{ video: string; durationMs: number }>("screen-recording-stop", {
+        udid,
+      });
     }
     if (failure) throw failure;
 
@@ -139,7 +149,6 @@ async function captureSegments(
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 
 async function assertSize(file: string, width: number, height: number): Promise<void> {
   const r = await execOrThrow("sips", ["-g", "pixelWidth", "-g", "pixelHeight", file]);

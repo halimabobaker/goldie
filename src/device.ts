@@ -1,7 +1,7 @@
-import { join } from "node:path";
 import { homedir } from "node:os";
-import { exec, execOrThrow } from "./exec.ts";
+import { join } from "node:path";
 import * as argent from "./argent.ts";
+import { exec, execOrThrow } from "./exec.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 
 type SimDevice = { udid: string; name: string; state: string; isAvailable?: boolean };
@@ -124,15 +124,26 @@ async function keyboardAndLocalePinned(udid: string, locale: string): Promise<bo
  */
 export async function pinStatusBar(udid: string): Promise<void> {
   await execOrThrow("xcrun", [
-    "simctl", "status_bar", udid, "override",
-    "--time", "9:41",
-    "--batteryState", "charged",
-    "--batteryLevel", "100",
-    "--wifiMode", "active",
-    "--wifiBars", "3",
-    "--cellularMode", "active",
-    "--cellularBars", "4",
-    "--dataNetwork", "5g",
+    "simctl",
+    "status_bar",
+    udid,
+    "override",
+    "--time",
+    "9:41",
+    "--batteryState",
+    "charged",
+    "--batteryLevel",
+    "100",
+    "--wifiMode",
+    "active",
+    "--wifiBars",
+    "3",
+    "--cellularMode",
+    "active",
+    "--cellularBars",
+    "4",
+    "--dataNetwork",
+    "5g",
   ]);
 }
 
@@ -162,7 +173,11 @@ async function isBooted(udid: string): Promise<boolean> {
  * and status bar applied. Rebooting also drops argent's transport session, so
  * an unnecessary one costs a tool-server restart on top of the boot itself.
  */
-export async function prepare(udid: string, locale: string, appearance: "light" | "dark"): Promise<void> {
+export async function prepare(
+  udid: string,
+  locale: string,
+  appearance: "light" | "dark",
+): Promise<void> {
   const booted = await isBooted(udid);
   if (!booted || !(await keyboardAndLocalePinned(udid, locale))) {
     if (booted) console.log("  rebooting to pin the keyboard and locale");

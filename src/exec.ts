@@ -2,7 +2,11 @@ import { spawn } from "node:child_process";
 
 export type ExecResult = { code: number; stdout: string; stderr: string };
 
-export function exec(cmd: string, args: string[], opts: { cwd?: string; quiet?: boolean } = {}): Promise<ExecResult> {
+export function exec(
+  cmd: string,
+  args: string[],
+  opts: { cwd?: string; quiet?: boolean } = {},
+): Promise<ExecResult> {
   return new Promise((res) => {
     const child = spawn(cmd, args, { cwd: opts.cwd, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
@@ -21,7 +25,11 @@ export function exec(cmd: string, args: string[], opts: { cwd?: string; quiet?: 
   });
 }
 
-export async function execOrThrow(cmd: string, args: string[], opts: { cwd?: string; quiet?: boolean } = {}) {
+export async function execOrThrow(
+  cmd: string,
+  args: string[],
+  opts: { cwd?: string; quiet?: boolean } = {},
+) {
   const r = await exec(cmd, args, { quiet: true, ...opts });
   if (r.code !== 0) {
     throw new Error(`${cmd} ${args.join(" ")} exited ${r.code}\n${r.stderr || r.stdout}`);

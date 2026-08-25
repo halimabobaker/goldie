@@ -76,6 +76,7 @@ export function DesignPanel({
             ] as Array<[Mode, string]>
           ).map(([value, label]) => (
             <button
+              type="button"
               key={value}
               onClick={() => setMode(value)}
               className={`flex-1 rounded-[6px] px-1 py-1 text-[12px] ${
@@ -94,6 +95,7 @@ export function DesignPanel({
             <div className="grid grid-cols-8 gap-1.5">
               {PRESETS.map((preset) => (
                 <button
+                  type="button"
                   key={preset.name}
                   title={preset.name}
                   onClick={() => onBackground(preset.css)}
@@ -109,7 +111,11 @@ export function DesignPanel({
           ) : (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <ColorInput label="From" value={from} onChange={(c) => applyGradient(c, to, angle)} />
+                <ColorInput
+                  label="From"
+                  value={from}
+                  onChange={(c) => applyGradient(c, to, angle)}
+                />
                 <ColorInput label="To" value={to} onChange={(c) => applyGradient(from, c, angle)} />
               </div>
               <label className="flex items-center gap-2 text-[12px] text-neutral-500">
@@ -135,7 +141,9 @@ export function DesignPanel({
             onChange={onFrame}
             options={[
               ...design.frameVariants.map((v): [string, string] => [v, FRAME_LABELS[v] ?? v]),
-              ...(design.frameVariant === null ? [["", "custom (from config)"] as [string, string]] : []),
+              ...(design.frameVariant === null
+                ? [["", "custom (from config)"] as [string, string]]
+                : []),
             ]}
           />
         </Field>

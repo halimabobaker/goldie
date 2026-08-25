@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { loadManifest, type StoreManifest } from "./manifest";
 import { Sidebar } from "./components/Sidebar";
 import { Strip } from "./components/Strip";
+import { loadManifest, type StoreManifest } from "./manifest";
 
 export function App() {
   const [manifest, setManifest] = useState<StoreManifest | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadManifest().then(setManifest).catch((e: Error) => setError(e.message));
+    loadManifest()
+      .then(setManifest)
+      .catch((e: Error) => setError(e.message));
   }, []);
 
   if (error) return <Empty message={error} />;

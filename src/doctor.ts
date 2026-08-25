@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { exec } from "./exec.ts";
 import * as argent from "./argent.ts";
-import * as device from "./device.ts";
-import { DEVICES } from "./specs.ts";
 import { flowPath, type LoadedConfig } from "./config.ts";
+import * as device from "./device.ts";
+import { exec } from "./exec.ts";
+import { DEVICES } from "./specs.ts";
 
 type Check = { name: string; ok: boolean; detail: string; fix?: string; warnOnly?: boolean };
 
@@ -101,7 +101,12 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     const flows = scene.kind === "preview" ? scene.segments.map((s) => s.flow) : [scene.flow];
     for (const f of flows) {
       const path = flowPath(cfg, f);
-      checks.push({ name: `flow ${f}`, ok: existsSync(path), detail: path, fix: "Record or author it under the flows dir, or fix the name in goldie.config.ts" });
+      checks.push({
+        name: `flow ${f}`,
+        ok: existsSync(path),
+        detail: path,
+        fix: "Record or author it under the flows dir, or fix the name in goldie.config.ts",
+      });
     }
   }
 

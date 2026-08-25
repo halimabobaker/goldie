@@ -55,4 +55,8 @@ function describe(step: FlowStepReport): string {
   return parts.join(" ").trim();
 }
 
-const indent = (s: string) => s.split("\n").map((l) => `          ${l}`).join("\n");
+const indent = (s: string) =>
+  s
+    .split("\n")
+    .map((l) => `          ${l}`)
+    .join("\n");

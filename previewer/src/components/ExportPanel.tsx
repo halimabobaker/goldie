@@ -11,6 +11,7 @@ export function ExportPanel({ background, frame }: { background: string; frame: 
   const [log, setLog] = useState<string | null>(null);
   const logRef = useRef<HTMLPreElement>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll whenever the log text changes
   useEffect(() => {
     logRef.current?.scrollTo(0, logRef.current.scrollHeight);
   }, [log]);
@@ -54,9 +55,7 @@ export function ExportPanel({ background, frame }: { background: string; frame: 
 
   return (
     <div className="flex flex-col gap-3">
-      {log !== null && !busy ? (
-        <p className="text-[12px] text-red-500">Export failed.</p>
-      ) : null}
+      {log !== null && !busy ? <p className="text-[12px] text-red-500">Export failed.</p> : null}
 
       {log !== null ? (
         <pre
@@ -68,6 +67,7 @@ export function ExportPanel({ background, frame }: { background: string; frame: 
       ) : null}
 
       <button
+        type="button"
         onClick={() => void exportZip()}
         disabled={busy}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-store-blue py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-60 dark:bg-store-blue-dark"

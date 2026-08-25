@@ -29,14 +29,21 @@ function flags(args: Record<string, Primitive | undefined>): string[] {
 }
 
 /** Invoke a tool and return its parsed `data`. */
-export async function run<T = any>(tool: string, args: Record<string, Primitive | undefined>): Promise<T> {
+export async function run<T = any>(
+  tool: string,
+  args: Record<string, Primitive | undefined>,
+): Promise<T> {
   const r = await execOrThrow(BIN, ["run", tool, "--json", ...flags(args)]);
   const parsed = parseJsonTail<any>(r.stdout);
   return (parsed?.data ?? parsed) as T;
 }
 
 /** Invoke a tool that returns an image/video artifact, writing it to `out`. */
-export async function runToFile(tool: string, args: Record<string, Primitive | undefined>, out: string): Promise<string> {
+export async function runToFile(
+  tool: string,
+  args: Record<string, Primitive | undefined>,
+  out: string,
+): Promise<string> {
   await execOrThrow(BIN, ["run", tool, "--out", out, ...flags(args)]);
   return out;
 }
@@ -67,13 +74,14 @@ export type FlowReport = {
 
 /** Replay a flow YAML headlessly. Never throws - inspect `ok` / `failed`. */
 export async function flow(pathOrName: string, udid: string): Promise<FlowReport> {
-  const r = await exec(BIN, ["flow", "run", pathOrName, "--device", udid, "--json"], { quiet: true });
+  const r = await exec(BIN, ["flow", "run", pathOrName, "--device", udid, "--json"], {
+    quiet: true,
+  });
   const raw = parseJsonTail<any>(r.stdout);
   const steps: FlowStepReport[] = raw?.steps ?? raw?.report?.steps ?? [];
   const failed = steps.find((s) => s.status === "fail" || s.status === "error") ?? null;
   return { ok: r.code === 0, raw, steps, failed, stdout: r.stdout + r.stderr };
 }
-
 
 /** Is the argent corner watermark disabled? Previews must not carry it. */
 export async function watermarkDisabled(): Promise<boolean> {

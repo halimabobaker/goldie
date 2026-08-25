@@ -1,11 +1,11 @@
-export { loadConfig } from "./config.ts";
-export type { GoldieConfig, Scene, ScreenshotScene, PreviewScene, Theme } from "./config.ts";
-export { DEVICES, PREVIEW } from "./specs.ts";
-export type { DeviceKey, DeviceSpec } from "./specs.ts";
-export { capture } from "./capture.ts";
 export type { CaptureManifest } from "./capture.ts";
-export { renderScreenshots, renderPreview, verify } from "./render.ts";
+export { capture } from "./capture.ts";
+export type { GoldieConfig, PreviewScene, Scene, ScreenshotScene, Theme } from "./config.ts";
+export { loadConfig } from "./config.ts";
 export { doctor } from "./doctor.ts";
+export type { LocaleAssets, StoreManifest } from "./manifest.ts";
 export { writeManifest } from "./manifest.ts";
-export type { StoreManifest, LocaleAssets } from "./manifest.ts";
+export { renderPreview, renderScreenshots, verify } from "./render.ts";
 export { FlowFailure, repairBrief } from "./repair.ts";
+export type { DeviceKey, DeviceSpec } from "./specs.ts";
+export { DEVICES, PREVIEW } from "./specs.ts";

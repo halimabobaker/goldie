@@ -36,6 +36,7 @@ export function Sidebar({
           <span className="goldie-wordmark">goldie</span>
         </h1>
         <button
+          type="button"
           onClick={() => onDark(!dark)}
           aria-label={dark ? "Switch to light appearance" : "Switch to dark appearance"}
           className="grid h-7 w-7 place-items-center rounded-md text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10"
@@ -64,7 +65,11 @@ export function Sidebar({
 
       {manifest.locales.length > 1 ? (
         <Field label="Locale">
-          <Select value={locale} onChange={onLocale} options={manifest.locales.map((l) => [l, l])} />
+          <Select
+            value={locale}
+            onChange={onLocale}
+            options={manifest.locales.map((l) => [l, l])}
+          />
         </Field>
       ) : null}
 
@@ -78,7 +83,9 @@ export function Sidebar({
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
+      <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+        {label}
+      </p>
       {children}
     </div>
   );
@@ -110,7 +117,16 @@ export function Select({
 
 function MoonIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
     </svg>
   );
@@ -118,7 +134,16 @@ function MoonIcon() {
 
 function SunIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
     </svg>

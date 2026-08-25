@@ -1,17 +1,17 @@
-import { mkdir, copyFile, writeFile, stat, readdir, symlink, rm, readFile } from "node:fs/promises";
-import { join, resolve, basename, relative, dirname } from "node:path";
-import { execOrThrow } from "./exec.ts";
-import { DEVICES, type DeviceKey } from "./specs.ts";
+import { copyFile, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { basename, dirname, join, relative } from "node:path";
+import type { CaptureManifest } from "./capture.ts";
 import {
   FRAME_VARIANTS,
   framePath,
-  variantFramePath,
   isPreview,
   isScreenshot,
   type LoadedConfig,
   type Theme,
+  variantFramePath,
 } from "./config.ts";
-import type { CaptureManifest } from "./capture.ts";
+import { execOrThrow } from "./exec.ts";
+import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /**
  * `out/web/` - the previewer's static root. It holds the manifest, the
@@ -76,7 +76,13 @@ export type StoreManifest = {
 };
 
 export type LocaleAssets = {
-  screenshots: Array<{ sceneId: string; url: string; width: number; height: number; bytes: number }>;
+  screenshots: Array<{
+    sceneId: string;
+    url: string;
+    width: number;
+    height: number;
+    bytes: number;
+  }>;
   preview: {
     sceneId: string;
     url: string;
@@ -182,7 +188,11 @@ async function readCaptureManifest(
   }
 }
 
-async function collect(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string): Promise<LocaleAssets> {
+async function collect(
+  cfg: LoadedConfig,
+  deviceKey: DeviceKey,
+  locale: string,
+): Promise<LocaleAssets> {
   const label = DEVICES[deviceKey].label;
   const shotDir = join(cfg.outDir, "screenshots", label, locale);
   const previewDir = join(cfg.outDir, "previews", label, locale);
@@ -238,9 +248,15 @@ async function imageSize(file: string) {
 
 async function videoInfo(file: string) {
   const r = await execOrThrow("ffprobe", [
-    "-v", "error", "-select_streams", "v:0",
-    "-show_entries", "stream=width,height:format=duration",
-    "-of", "json", file,
+    "-v",
+    "error",
+    "-select_streams",
+    "v:0",
+    "-show_entries",
+    "stream=width,height:format=duration",
+    "-of",
+    "json",
+    file,
   ]);
   const probe = JSON.parse(r.stdout);
   return {

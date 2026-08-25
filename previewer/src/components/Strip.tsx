@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { layout } from "../../../src/frame";
 import type { Design, DeviceCaptures, DeviceEntry, Theme } from "../manifest";
 
@@ -48,9 +48,7 @@ export function Strip({
     design.preview && captures.clips
       ? design.preview.segments.flatMap((seg) => {
           const clip = captures.clips!.find((c) => c.segmentId === seg.id);
-          return clip
-            ? [{ url: clip.url, durationSeconds: clip.durationSeconds }]
-            : [];
+          return clip ? [{ url: clip.url, durationSeconds: clip.durationSeconds }] : [];
         })
       : [];
 
@@ -113,7 +111,12 @@ function geometry(spec: { width: number; height: number }, theme: Theme) {
   const h = (v: number) => `${(v / spec.height) * 100}cqh`;
   return {
     copyHeight: h(copyHeight),
-    frame: { left: w(g.frame.left), top: h(g.frame.top), width: w(g.frame.width), height: h(g.frame.height) },
+    frame: {
+      left: w(g.frame.left),
+      top: h(g.frame.top),
+      width: w(g.frame.width),
+      height: h(g.frame.height),
+    },
     screen: {
       left: w(g.screen.left),
       top: h(g.screen.top),
@@ -192,7 +195,15 @@ function ScreenshotScene({
           {headline}
         </h1>
         {subhead ? (
-          <p style={{ margin: 0, color: subheadColor, fontSize: "3.8cqw", lineHeight: 1.3, fontWeight: 400 }}>
+          <p
+            style={{
+              margin: 0,
+              color: subheadColor,
+              fontSize: "3.8cqw",
+              lineHeight: 1.3,
+              fontWeight: 400,
+            }}
+          >
             {subhead}
           </p>
         ) : null}
@@ -205,7 +216,12 @@ function ScreenshotScene({
         draggable={false}
         style={{ position: "absolute", ...g.screen, objectFit: "cover" }}
       />
-      <img src={`/${frameUrl}`} alt="" draggable={false} style={{ position: "absolute", ...g.frame }} />
+      <img
+        src={`/${frameUrl}`}
+        alt=""
+        draggable={false}
+        style={{ position: "absolute", ...g.frame }}
+      />
     </Canvas>
   );
 }

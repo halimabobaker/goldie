@@ -2,6 +2,7 @@
   "name": "goldie",
   "version": "0.1.0",
   "devDependencies": {
+    "@biomejs/biome": "^2.5.10",
     "@swmansion/argent": "^0.22.0",
     "@types/bun": "^1.4.0",
     "typescript": "5.9.3"
@@ -20,7 +21,10 @@
     "preview": "bun src/cli.ts preview",
     "all": "bun src/cli.ts all",
     "previewer": "bun src/cli.ts manifest && cd previewer && bun install --silent && bun run dev",
-    "previewer:build": "bun src/cli.ts manifest && cd previewer && bun install --silent && bun run build"
+    "previewer:build": "bun src/cli.ts manifest && cd previewer && bun install --silent && bun run build",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --write ."
   },
   "type": "module",
   "dependencies": {

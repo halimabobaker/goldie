@@ -1,5 +1,5 @@
-import { resolve, dirname } from "node:path";
 import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DeviceKey } from "./specs.ts";
 
