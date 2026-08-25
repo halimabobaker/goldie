@@ -96,3 +96,30 @@ export async function loadManifest(): Promise<StoreManifest> {
   }
   return manifest;
 }
+
+/** The design choices saved on disk next to the config; see /api/design in vite.config.ts. */
+export type SavedDesign = {
+  background?: string;
+  frame?: string;
+  fontFamily?: string;
+};
+
+export async function loadDesign(): Promise<SavedDesign> {
+  try {
+    const res = await fetch("/api/design", { cache: "no-store" });
+    if (!res.ok) return {};
+    const parsed = await res.json();
+    return parsed && typeof parsed === "object" ? (parsed as SavedDesign) : {};
+  } catch {
+    return {}; // a static build has no API; the config's values stand
+  }
+}
+
+export async function saveDesign(design: SavedDesign): Promise<void> {
+  const res = await fetch("/api/design", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(design),
+  });
+  if (!res.ok) throw new Error(`Saving goldie.design.json failed: ${await res.text()}`);
+}

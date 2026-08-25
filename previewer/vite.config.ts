@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { createReadStream, existsSync, statSync } from "node:fs";
-import { rm } from "node:fs/promises";
+import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import type { ServerResponse } from "node:http";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
@@ -10,10 +10,14 @@ import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 const SRC_DIR = resolve(import.meta.dirname, "src");
 
 const GOLDIE_ROOT = resolve(import.meta.dirname, "..");
-// GOLDIE_CONFIG points at a config outside this repo; out/ lives next to it.
-const OUT_DIR = process.env.GOLDIE_CONFIG
-  ? join(resolve(process.env.GOLDIE_CONFIG), "..", "out")
-  : join(GOLDIE_ROOT, "out");
+// GOLDIE_CONFIG points at a config outside this repo; out/ and the design
+// sidecar live next to it.
+const CONFIG_DIR = process.env.GOLDIE_CONFIG
+  ? dirname(resolve(process.env.GOLDIE_CONFIG))
+  : GOLDIE_ROOT;
+const OUT_DIR = join(CONFIG_DIR, "out");
+/** Mirrors designPath() in src/config.ts. */
+const DESIGN_FILE = join(CONFIG_DIR, "goldie.design.json");
 const EXPORT_ZIP = join(OUT_DIR, "export.zip");
 
 /**
@@ -39,6 +43,12 @@ export default defineConfig({
  * The response ends with "[done]" on success or "[failed]" otherwise; on
  * "[done]" the UI downloads GET /api/export/download. Dev server only; a
  * built dist stays static.
+ *
+ * GET/PUT /api/design - the design choices saved next to the config as
+ * goldie.design.json ({ background?, frame?, fontFamily? }). The CLI's
+ * loadConfig() applies the file, so a saved choice also shapes plain
+ * `goldie frame` runs. The UI debounces its PUTs; the server writes the file
+ * atomically so a half-written JSON never reaches the CLI.
  */
 function goldieApi(): Plugin {
   let busy = false;
@@ -46,6 +56,56 @@ function goldieApi(): Plugin {
   return {
     name: "goldie-api",
     configureServer(server: ViteDevServer) {
+      server.middlewares.use("/api/design", (req, res) => {
+        if (req.method === "GET") {
+          readFile(DESIGN_FILE, "utf8").then(
+            (json) => {
+              res.writeHead(200, {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-store",
+              });
+              res.end(json);
+            },
+            () => {
+              res.writeHead(200, {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-store",
+              });
+              res.end("{}");
+            },
+          );
+          return;
+        }
+        if (req.method !== "PUT") {
+          res.statusCode = 405;
+          res.end("GET or PUT only");
+          return;
+        }
+        let body = "";
+        req.on("data", (chunk) => (body += chunk));
+        req.on("end", async () => {
+          let design: Record<string, unknown>;
+          try {
+            design = JSON.parse(body);
+            if (!design || typeof design !== "object") throw new Error();
+          } catch {
+            res.statusCode = 400;
+            res.end("Body must be a JSON object.");
+            return;
+          }
+          try {
+            const tmp = `${DESIGN_FILE}.tmp`;
+            await writeFile(tmp, `${JSON.stringify(design, null, 2)}\n`);
+            await rename(tmp, DESIGN_FILE);
+            res.statusCode = 204;
+            res.end();
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(err instanceof Error ? err.message : String(err));
+          }
+        });
+      });
+
       server.middlewares.use("/api/export", (req, res) => {
         if (req.method === "GET" && req.url === "/download") {
           if (!existsSync(EXPORT_ZIP)) {

@@ -1,12 +1,6 @@
 #!/usr/bin/env bun
 import { capture } from "./capture.ts";
-import {
-  type FrameVariant,
-  framePath,
-  isScreenshot,
-  type LoadedConfig,
-  loadConfig,
-} from "./config.ts";
+import { applyDesign, type FrameVariant, type LoadedConfig, loadConfig } from "./config.ts";
 import * as device from "./device.ts";
 import { doctor } from "./doctor.ts";
 import { FONT_KEYS, fontStack } from "./fonts.ts";
@@ -52,26 +46,14 @@ async function main() {
     opt("config") ? Bun.resolveSync(opt("config")!, process.cwd()) : undefined,
   );
 
-  // One-run overrides, used by the previewer's regenerate endpoint. The config
-  // file stays the source of truth; copy a value there to keep it.
-  const background = opt("background");
-  if (background) {
-    cfg.theme.background = background;
-    for (const scene of cfg.scenes) if (isScreenshot(scene)) scene.background = undefined;
-    // The config's copy colors assume its own background; a dark override
-    // would render near-black headlines on a near-black gradient.
-    if (isDarkBackground(background)) {
-      cfg.theme.headlineColor = "#FFFFFF";
-      cfg.theme.subheadColor = "#D9E1EA";
-    }
-  }
-  const frame = opt("frame");
-  if (frame) {
-    cfg.frame = { variant: frame as FrameVariant };
-    framePath(cfg); // throws on an unknown variant
-  }
+  // One-run overrides on top of the config and goldie.design.json (the
+  // previewer's saved choices). Copy a value into the config to keep it.
   const font = opt("font");
-  if (font) cfg.theme.fontFamily = fontStack(font); // throws on an unknown key
+  applyDesign(cfg, {
+    background: opt("background"),
+    frame: opt("frame") as FrameVariant | undefined,
+    fontFamily: font ? fontStack(font) : undefined, // throws on an unknown key
+  });
 
   const devices = (opt("device") ? [opt("device") as DeviceKey] : cfg.devices) as DeviceKey[];
   const locales = opt("locale") ? [opt("locale")!] : cfg.locales;
@@ -117,23 +99,6 @@ async function main() {
       console.error(`Unknown command "${command}"\n${USAGE}`);
       return 1;
   }
-}
-
-/**
- * Mean relative luminance of the background's hex stops, below 0.5 counts as
- * dark. Backgrounds without six-digit hex colors keep the config's copy colors.
- */
-function isDarkBackground(css: string): boolean {
-  const hexes = css.match(/#[0-9a-fA-F]{6}/g);
-  if (!hexes || hexes.length === 0) return false;
-  const luminance = (hex: string) => {
-    const channel = (offset: number) => {
-      const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
-      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    };
-    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-  };
-  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length < 0.5;
 }
 
 async function runCapture(cfg: LoadedConfig, devices: DeviceKey[]) {

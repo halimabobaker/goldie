@@ -7,6 +7,7 @@ previewer/dist
 
 # App-specific config; copy goldie.config.example.ts
 goldie.config.ts
+goldie.design.json
 
 # Generated assets: screenshots, previews, staged frames, export bundles
 out/

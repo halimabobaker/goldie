@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DeviceKey } from "./specs.ts";
@@ -136,8 +136,73 @@ export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConf
     flowsDir: cfg.flowsDir ? resolve(root, cfg.flowsDir) : resolve(cfg.appRoot, ".argent/flows"),
     outDir: resolve(root, "out"),
   };
+  applyDesign(loaded, readDesign(path));
   framePath(loaded); // fail at load time on a bad variant or missing bezel PNG
   return loaded;
+}
+
+/**
+ * Design choices made in the previewer, kept next to the config as
+ * goldie.design.json so they survive a reload and apply to CLI runs too.
+ * Every field is optional; a missing one leaves the config's value alone.
+ */
+export type DesignOverrides = {
+  background?: string;
+  frame?: FrameVariant;
+  /** A full CSS font stack, as the previewer's font picker produces. */
+  fontFamily?: string;
+};
+
+/** Path of the design sidecar for a config file. */
+export function designPath(configPath: string): string {
+  return resolve(dirname(configPath), "goldie.design.json");
+}
+
+export function readDesign(configPath: string): DesignOverrides {
+  const file = designPath(configPath);
+  if (!existsSync(file)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    return parsed && typeof parsed === "object" ? (parsed as DesignOverrides) : {};
+  } catch (err) {
+    throw new Error(`Unreadable ${file}: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+/** Layers design overrides (the sidecar, or CLI flags) onto a loaded config. */
+export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
+  if (design.background) {
+    cfg.theme.background = design.background;
+    for (const scene of cfg.scenes) if (isScreenshot(scene)) scene.background = undefined;
+    // The config's copy colors assume its own background; a dark override
+    // would render near-black headlines on a near-black gradient.
+    if (isDarkBackground(design.background)) {
+      cfg.theme.headlineColor = "#FFFFFF";
+      cfg.theme.subheadColor = "#D9E1EA";
+    }
+  }
+  if (design.frame) {
+    cfg.frame = { variant: design.frame };
+    framePath(cfg); // throws on an unknown variant
+  }
+  if (design.fontFamily) cfg.theme.fontFamily = design.fontFamily;
+}
+
+/**
+ * Mean relative luminance of the background's hex stops, below 0.5 counts as
+ * dark. Backgrounds without six-digit hex colors keep the config's copy colors.
+ */
+export function isDarkBackground(css: string): boolean {
+  const hexes = css.match(/#[0-9a-fA-F]{6}/g);
+  if (!hexes || hexes.length === 0) return false;
+  const luminance = (hex: string) => {
+    const channel = (offset: number) => {
+      const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length < 0.5;
 }
 
 const GOLDIE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
