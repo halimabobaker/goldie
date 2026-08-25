@@ -8,7 +8,9 @@ description: >-
   for App Store screenshots, store assets, marketing screenshots, an app
   preview video, or mentions goldie, even if they only say something like
   "make screenshots for the store" or "I need App Store assets for this app".
-  Run it from inside the mobile app's repo.
+  Also use it for follow-ups on assets goldie already made: new headlines, a
+  different background or bezel, swapping or reordering a screenshot, or a
+  changed preview story. Run it from inside the mobile app's repo.
 ---
 
 # goldie: App Store assets for the app in this repo
@@ -25,6 +27,23 @@ copy, and drive the pipeline.
 The end state: 4 or 5 framed screenshots and the raw clips for a preview video,
 visible in the previewer at http://localhost:4321, with the video rendering in
 the background.
+
+## Before anything: check for an existing goldie setup
+
+goldie keeps the whole outcome in files the user can re-prompt against. If
+the app repo already has a config, this is a follow-up, so read it first and
+skip to "Iterating on an existing setup" below rather than starting over:
+
+```bash
+ls goldie/goldie.config.ts .argent/flows/ 2>/dev/null; echo "GOLDIE_CONFIG=$GOLDIE_CONFIG"
+```
+
+Read `goldie/goldie.config.ts` in full and the flows it names. Together they
+are the source of truth for every visible choice: which screens, in what
+order, the headlines and subheads, the background and copy colors, the bezel,
+the store listing, and the preview story. Nothing lives only in your head or
+in the previewer, so a user who says "make it darker" or "swap the search
+screenshot for settings" is asking for an edit to those files.
 
 ## Step 0: Locate or install goldie
 
@@ -165,3 +184,35 @@ assets exist, where they are, and whether they pass Apple's rules. The
 previewer's sidebar shows the same checks; a red row is a rule violation. The
 Generate panel lets the user restyle backgrounds and bezels without you, and
 Export downloads an upload-ready zip.
+
+## Iterating on an existing setup
+
+A follow-up prompt maps onto a small change in the config or a flow, then
+the cheapest stage that reflects it. Do not re-explore the app or rewrite
+scenes the user did not mention. Report which file and field you changed so
+the next prompt can build on it.
+
+| The user asks for | Edit | Then run |
+|---|---|---|
+| Different headline, subhead or store copy | `scenes[].headline` / `subhead`, `store.*` | `frame`, `manifest` |
+| A new look: background, text colors, font, sizing | `theme.*`, or `scenes[].background` for one tile | `frame`, `manifest` |
+| A different bezel | `frame.variant` | `frame`, `manifest` |
+| Dark mode captures | `appearance: "dark"` (and text colors to match) | `capture`, `frame`, `manifest` |
+| Reorder, drop or add a screenshot | `scenes[]`; a new scene needs a new flow in `.argent/flows` | `capture` (new flows), `frame`, `manifest` |
+| Show a different state on one screen | the scene's flow YAML | `capture`, `frame`, `manifest` |
+| Change the preview story or its pacing | preview `segments[]`, `holdSeconds`, flow `wait:` steps | `capture`, `preview`, `manifest` |
+| Another locale | `locales`, plus a `<locale>` key in every copy record | `capture`, `frame`, `preview`, `manifest` |
+
+`capture` replays every flow; to re-capture only what changed, keep the
+other scenes as they are and accept the extra minute, or delete only the
+stale files under `out/raw/` before running it. `frame` and `manifest` take
+seconds, so run them freely. The previewer at http://localhost:4321 picks up
+changes on reload; start it again with `GOLDIE_CONFIG` if it is not running.
+
+The previewer's Generate panel and the CLI's `--background` / `--frame`
+flags are one-run overrides that never touch the config. If the user tried a
+preset there and wants to keep it, copy the CSS or variant into `theme.background`
+or `frame.variant` so the next re-prompt starts from what they see. The
+current on-disk values are also in `goldie/out/web/store.json` under `design`,
+which is the fastest way to confirm what the previewer is showing right now.
+

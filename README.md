@@ -41,6 +41,13 @@ npx skills add kacperkapusciak/goldie
 
 Then ask Claude from the app repo: "create App Store screenshots using goldie".
 
+The result is a `goldie/goldie.config.ts` and a set of flows in the app repo.
+They hold every choice the skill made, so later prompts iterate on them
+instead of starting over: "make the headlines punchier", "use a dark
+background", "replace the search screenshot with settings". The skill reads
+the existing config, edits only what you asked for, and re-runs the stage
+that reflects it.
+
 ## Output
 
 | Asset | Size | Location |
