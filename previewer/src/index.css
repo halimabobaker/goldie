@@ -201,3 +201,14 @@ body,
   --primary-foreground: #ffffff;
   --ring: #0a84ff;
 }
+
+/* Tile -> lightbox shared-element morph (Strip.tsx): only the scene animates,
+   the rest of the page (backdrop included) switches instantly. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(lightbox-scene) {
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}

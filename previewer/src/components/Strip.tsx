@@ -1,5 +1,6 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { layout } from "../../../src/frame";
 import type { Design, DeviceCaptures, DeviceEntry, Theme } from "../manifest";
 import { Button } from "./ui/button";
@@ -69,30 +70,35 @@ export function Strip({
 
   const totalSeconds = segments.reduce((s, c) => s + c.durationSeconds, 0);
 
-  const tiles: ReactNode[] = [];
+  type Entry = {
+    key: string;
+    width: number;
+    height: number;
+    caption: string;
+    bad: boolean;
+    badReason?: string;
+    scene: ReactNode;
+  };
+  const entries: Entry[] = [];
   if (segments.length > 0) {
-    tiles.push(
-      <Tile
-        key="preview"
-        width={spec.preview.width}
-        height={spec.preview.height}
-        caption={`${spec.preview.width}×${spec.preview.height} · ${totalSeconds.toFixed(1)}s`}
-        bad={totalSeconds < 15 || totalSeconds > 30}
-        badReason="Clips sum outside the 15-30s Apple allows for previews."
-      >
-        <PreviewScene segments={segments} />
-      </Tile>,
-    );
+    entries.push({
+      key: "preview",
+      width: spec.preview.width,
+      height: spec.preview.height,
+      caption: `${spec.preview.width}×${spec.preview.height} · ${totalSeconds.toFixed(1)}s`,
+      bad: totalSeconds < 15 || totalSeconds > 30,
+      badReason: "Clips sum outside the 15-30s Apple allows for previews.",
+      scene: <PreviewScene segments={segments} />,
+    });
   }
   for (const { scene, capture } of shots) {
-    tiles.push(
-      <Tile
-        key={scene.id}
-        width={spec.screenshot.width}
-        height={spec.screenshot.height}
-        caption={`${spec.screenshot.width}×${spec.screenshot.height}`}
-        bad={false}
-      >
+    entries.push({
+      key: scene.id,
+      width: spec.screenshot.width,
+      height: spec.screenshot.height,
+      caption: `${spec.screenshot.width}×${spec.screenshot.height}`,
+      bad: false,
+      scene: (
         <ScreenshotScene
           spec={spec.screenshot}
           theme={theme}
@@ -105,9 +111,42 @@ export function Strip({
           subheadColor={subheadColor}
           captureUrl={capture.url}
         />
-      </Tile>,
-    );
+      ),
+    });
   }
+
+  const [open, setOpenState] = useState<number | null>(null);
+  // The tile that shares its view-transition-name with the lightbox scene.
+  // It must already be named in the frame *before* the transition starts,
+  // or the old snapshot has nothing to morph from; so it is committed
+  // synchronously first, and only cleared once the closing morph is done.
+  const [named, setNamed] = useState<number | null>(null);
+  const setOpen = (next: number | null) => {
+    if (typeof document.startViewTransition !== "function") {
+      setNamed(next);
+      setOpenState(next);
+      return;
+    }
+    if (next !== null) flushSync(() => setNamed(next));
+    const transition = document.startViewTransition(() => flushSync(() => setOpenState(next)));
+    if (next === null) transition.finished.finally(() => setNamed(null));
+  };
+  const tiles = entries.map((entry, i) => (
+    <Tile
+      key={entry.key}
+      width={entry.width}
+      height={entry.height}
+      caption={entry.caption}
+      bad={entry.bad}
+      badReason={entry.badReason}
+      onOpen={() => setOpen(i)}
+      // Named only while the lightbox is closed: once open, the scene inside
+      // it carries the name, and a duplicate would abort the transition.
+      transitionName={named === i && open === null ? "lightbox-scene" : undefined}
+    >
+      {entry.scene}
+    </Tile>
+  ));
 
   const pages = Math.max(1, Math.ceil(tiles.length / PAGE_SIZE));
   const [page, setPage] = useState(0);
@@ -115,6 +154,12 @@ export function Strip({
   useEffect(() => {
     if (page > pages - 1) setPage(pages - 1);
   }, [page, pages]);
+  useEffect(() => {
+    if (open !== null && open > entries.length - 1) {
+      setOpenState(null);
+      setNamed(null);
+    }
+  }, [open, entries.length]);
 
   if (tiles.length === 0) return null;
 
@@ -165,6 +210,112 @@ export function Strip({
           ) : null}
         </div>
       ) : null}
+
+      {open !== null && entries[open] ? (
+        <Lightbox
+          entry={entries[open]}
+          index={open}
+          count={entries.length}
+          onClose={() => setOpen(null)}
+          // Stepping swaps the scene in place with no morph.
+          onStep={(delta) => {
+            if (open === null) return;
+            const next = Math.min(entries.length - 1, Math.max(0, open + delta));
+            setNamed(next);
+            setOpenState(next);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Full-viewport view of one tile: the same composition, rendered as large as
+ * the window allows at the spec's aspect ratio. Click outside, Escape, or the
+ * close button dismiss it; arrow keys step between tiles.
+ */
+function Lightbox({
+  entry,
+  index,
+  count,
+  onClose,
+  onStep,
+}: {
+  entry: { width: number; height: number; caption: string; scene: ReactNode };
+  index: number;
+  count: number;
+  onClose: () => void;
+  onStep: (delta: number) => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") onStep(-1);
+      else if (e.key === "ArrowRight") onStep(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, onStep]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Screenshot preview"
+      className="animate-in fade-in fixed inset-0 z-50 flex duration-150 flex-col items-center justify-center gap-3 bg-black/80 p-8 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+    >
+      <div
+        className="relative overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10 select-none"
+        style={{
+          viewTransitionName: "lightbox-scene",
+          aspectRatio: `${entry.width} / ${entry.height}`,
+          maxWidth: "calc(100vw - 4rem)",
+          maxHeight: "calc(100vh - 6rem)",
+          width: `calc((100vh - 6rem) * ${entry.width / entry.height})`,
+        }}
+      >
+        {entry.scene}
+      </div>
+      <p className="text-[11px] text-neutral-300 tabular-nums">
+        {count > 1 ? `${index + 1} of ${count} · ` : ""}
+        {entry.caption}
+      </p>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-lg"
+        aria-label="Close"
+        className="absolute top-4 right-4 rounded-full"
+        onClick={onClose}
+      >
+        <X />
+      </Button>
+      {count > 1 ? (
+        <>
+          <PagerButton
+            side="left"
+            label="Previous"
+            disabled={index === 0}
+            onClick={() => onStep(-1)}
+            inset
+          />
+          <PagerButton
+            side="right"
+            label="Next"
+            disabled={index === count - 1}
+            onClick={() => onStep(1)}
+            inset
+          />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -175,13 +326,23 @@ function PagerButton({
   label,
   disabled,
   onClick,
+  inset = false,
 }: {
   side: "left" | "right";
   label: string;
   disabled: boolean;
   onClick: () => void;
+  /** Sit inside the edge instead of overhanging it (used in the lightbox). */
+  inset?: boolean;
 }) {
   const Icon = side === "left" ? ChevronLeft : ChevronRight;
+  const offset = inset
+    ? side === "left"
+      ? "left-4"
+      : "right-4"
+    : side === "left"
+      ? "-left-5"
+      : "-right-5";
   return (
     <Button
       type="button"
@@ -189,10 +350,11 @@ function PagerButton({
       size="icon-lg"
       aria-label={label}
       disabled={disabled}
-      onClick={onClick}
-      className={`absolute top-1/2 -translate-y-1/2 rounded-full shadow-md ${
-        side === "left" ? "-left-5" : "-right-5"
-      }`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`absolute top-1/2 -translate-y-1/2 rounded-full shadow-md ${offset}`}
     >
       <Icon />
     </Button>
@@ -357,6 +519,8 @@ function Tile({
   caption,
   bad,
   badReason,
+  onOpen,
+  transitionName,
   children,
 }: {
   width: number;
@@ -364,16 +528,21 @@ function Tile({
   caption: string;
   bad: boolean;
   badReason?: string;
+  onOpen: () => void;
+  transitionName?: string;
   children: ReactNode;
 }) {
   return (
     <div>
-      <div
-        className="relative overflow-hidden rounded-2xl bg-neutral-200 shadow-sm ring-1 ring-black/10 dark:bg-neutral-800 dark:ring-white/10"
-        style={{ aspectRatio: `${width} / ${height}` }}
+      <button
+        type="button"
+        aria-label="Open full-size preview"
+        onClick={onOpen}
+        className="relative block w-full cursor-zoom-in overflow-hidden rounded-2xl bg-neutral-200 shadow-sm ring-1 ring-black/10 transition select-none hover:ring-black/30 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:bg-neutral-800 dark:ring-white/10 dark:hover:ring-white/30"
+        style={{ aspectRatio: `${width} / ${height}`, viewTransitionName: transitionName }}
       >
         {children}
-      </div>
+      </button>
       <p
         title={bad ? badReason : undefined}
         className={`pt-2 text-center text-[11px] tabular-nums ${
