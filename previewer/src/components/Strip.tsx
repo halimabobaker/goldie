@@ -1,6 +1,13 @@
-import { type ReactNode, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { layout } from "../../../src/frame";
 import type { Design, DeviceCaptures, DeviceEntry, Theme } from "../manifest";
+import { Button } from "./ui/button";
+
+/** Tiles shown at once; the App Store product page shows this many before scrolling. */
+const PAGE_SIZE = 5;
+/** Apple's cap on screenshots per device family. */
+const MAX_SCREENSHOTS = 10;
 
 /**
  * The five-up strip, composited in the browser: each screenshot tile is the
@@ -9,6 +16,10 @@ import type { Design, DeviceCaptures, DeviceEntry, Theme } from "../manifest";
  * is what an export renders. Background and frame arrive as props from React
  * state - changing them repaints instantly, no CLI involved. The preview tile
  * plays the raw clips as they are: Apple requires a plain screen recording.
+ *
+ * The App Store allows up to ten screenshots; the strip shows five tiles at a
+ * time, and when there are more, arrows page through them like the store's
+ * own carousel. Scenes past the tenth are dropped with a note.
  *
  * Every tile is a size-container: the geometry is computed in the device's
  * spec pixels and expressed in cqw/cqh, so the tile is the composition scaled
@@ -41,10 +52,12 @@ export function Strip({
   const headlineColor = dark ? "#FFFFFF" : theme.headlineColor;
   const subheadColor = dark ? "#D9E1EA" : theme.subheadColor;
 
-  const shots = design.scenes.flatMap((scene) => {
+  const allShots = design.scenes.flatMap((scene) => {
     const capture = captures.screenshots.find((s) => s.sceneId === scene.id);
     return capture ? [{ scene, capture }] : [];
   });
+  const shots = allShots.slice(0, MAX_SCREENSHOTS);
+  const dropped = allShots.length - shots.length;
 
   const segments =
     design.preview && captures.clips
@@ -54,51 +67,135 @@ export function Strip({
         })
       : [];
 
-  const count = shots.length + (segments.length > 0 ? 1 : 0);
-  if (count === 0) return null;
-
   const totalSeconds = segments.reduce((s, c) => s + c.durationSeconds, 0);
 
-  return (
-    <div
-      className="grid w-full items-start gap-4"
-      style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
-    >
-      {segments.length > 0 ? (
-        <Tile
-          width={spec.preview.width}
-          height={spec.preview.height}
-          caption={`${spec.preview.width}×${spec.preview.height} · ${totalSeconds.toFixed(1)}s`}
-          bad={totalSeconds < 15 || totalSeconds > 30}
-          badReason="Clips sum outside the 15-30s Apple allows for previews."
-        >
-          <PreviewScene segments={segments} />
-        </Tile>
-      ) : null}
+  const tiles: ReactNode[] = [];
+  if (segments.length > 0) {
+    tiles.push(
+      <Tile
+        key="preview"
+        width={spec.preview.width}
+        height={spec.preview.height}
+        caption={`${spec.preview.width}×${spec.preview.height} · ${totalSeconds.toFixed(1)}s`}
+        bad={totalSeconds < 15 || totalSeconds > 30}
+        badReason="Clips sum outside the 15-30s Apple allows for previews."
+      >
+        <PreviewScene segments={segments} />
+      </Tile>,
+    );
+  }
+  for (const { scene, capture } of shots) {
+    tiles.push(
+      <Tile
+        key={scene.id}
+        width={spec.screenshot.width}
+        height={spec.screenshot.height}
+        caption={`${spec.screenshot.width}×${spec.screenshot.height}`}
+        bad={false}
+      >
+        <ScreenshotScene
+          spec={spec.screenshot}
+          theme={theme}
+          background={background}
+          frameUrl={frameUrl}
+          fontFamily={fontFamily}
+          headline={scene.headline[locale] ?? ""}
+          subhead={scene.subhead?.[locale]}
+          headlineColor={headlineColor}
+          subheadColor={subheadColor}
+          captureUrl={capture.url}
+        />
+      </Tile>,
+    );
+  }
 
-      {shots.map(({ scene, capture }) => (
-        <Tile
-          key={scene.id}
-          width={spec.screenshot.width}
-          height={spec.screenshot.height}
-          caption={`${spec.screenshot.width}×${spec.screenshot.height}`}
-          bad={false}
+  const pages = Math.max(1, Math.ceil(tiles.length / PAGE_SIZE));
+  const [page, setPage] = useState(0);
+  // A device switch can shrink the tile count; keep the page in range.
+  useEffect(() => {
+    if (page > pages - 1) setPage(pages - 1);
+  }, [page, pages]);
+
+  if (tiles.length === 0) return null;
+
+  const visible = tiles.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  // Pad the last page so tiles keep the same width as on a full page.
+  const columns = pages > 1 ? PAGE_SIZE : tiles.length;
+
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <div className="relative">
+        <div
+          className="grid w-full items-start gap-4"
+          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
         >
-          <ScreenshotScene
-            spec={spec.screenshot}
-            theme={theme}
-            background={background}
-            frameUrl={frameUrl}
-            fontFamily={fontFamily}
-            headline={scene.headline[locale] ?? ""}
-            subhead={scene.subhead?.[locale]}
-            headlineColor={headlineColor}
-            subheadColor={subheadColor}
-            captureUrl={capture.url}
-          />
-        </Tile>
-      ))}
+          {visible}
+        </div>
+
+        {pages > 1 ? (
+          <>
+            <PagerButton
+              side="left"
+              label="Previous screenshots"
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+            />
+            <PagerButton
+              side="right"
+              label="Next screenshots"
+              disabled={page === pages - 1}
+              onClick={() => setPage((p) => p + 1)}
+            />
+          </>
+        ) : null}
+      </div>
+
+      {pages > 1 || dropped > 0 ? (
+        <div className="flex items-center justify-center gap-3 text-[11px] text-neutral-400 dark:text-neutral-500">
+          {pages > 1 ? (
+            <span className="tabular-nums">
+              {page * PAGE_SIZE + 1}–{page * PAGE_SIZE + visible.length} of {tiles.length}
+            </span>
+          ) : null}
+          {dropped > 0 ? (
+            <span className="font-medium text-red-500">
+              {dropped} more scene{dropped === 1 ? "" : "s"} hidden: the App Store allows{" "}
+              {MAX_SCREENSHOTS} screenshots.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/** Round arrow floating over the strip's edge, like the store carousel's. */
+function PagerButton({
+  side,
+  label,
+  disabled,
+  onClick,
+}: {
+  side: "left" | "right";
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const Icon = side === "left" ? ChevronLeft : ChevronRight;
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon-lg"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`absolute top-1/2 -translate-y-1/2 rounded-full shadow-md ${
+        side === "left" ? "-left-5" : "-right-5"
+      }`}
+    >
+      <Icon />
+    </Button>
   );
 }
 
