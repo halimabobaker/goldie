@@ -35,7 +35,7 @@ export default defineConfig({
  * POST /api/export - renders the final assets from the raw captures with the
  * chosen background and frame (goldie frame + preview + manifest), zips
  * out/screenshots and out/previews, and streams the CLI log as plain text.
- * Body: { background?: string, frame?: string }.
+ * Body: { background?: string, frame?: string, font?: string }.
  * The response ends with "[done]" on success or "[failed]" otherwise; on
  * "[done]" the UI downloads GET /api/export/download. Dev server only; a
  * built dist stays static.
@@ -77,7 +77,7 @@ function goldieApi(): Plugin {
         let body = "";
         req.on("data", (chunk) => (body += chunk));
         req.on("end", async () => {
-          let opts: { background?: string; frame?: string };
+          let opts: { background?: string; frame?: string; font?: string };
           try {
             opts = JSON.parse(body || "{}");
           } catch {
@@ -90,6 +90,7 @@ function goldieApi(): Plugin {
           const flags: string[] = [];
           if (opts.background) flags.push("--background", opts.background);
           if (opts.frame) flags.push("--frame", opts.frame);
+          if (opts.font) flags.push("--font", opts.font);
 
           res.writeHead(200, {
             "Content-Type": "text/plain; charset=utf-8",

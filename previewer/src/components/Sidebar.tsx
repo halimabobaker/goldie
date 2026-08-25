@@ -21,11 +21,13 @@ export function Sidebar({
   dark,
   background,
   frame,
+  fontFamily,
   onDevice,
   onLocale,
   onDark,
   onBackground,
   onFrame,
+  onFontFamily,
 }: {
   manifest: StoreManifest;
   device: string;
@@ -33,11 +35,13 @@ export function Sidebar({
   dark: boolean;
   background: string;
   frame: string;
+  fontFamily: string;
   onDevice: (v: string) => void;
   onLocale: (v: string) => void;
   onDark: (v: boolean) => void;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
+  onFontFamily: (v: string) => void;
 }) {
   return (
     <aside className="flex w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r bg-sidebar p-6 text-sidebar-foreground">
@@ -60,8 +64,10 @@ export function Sidebar({
         design={manifest.design}
         background={background}
         frame={frame}
+        fontFamily={fontFamily}
         onBackground={onBackground}
         onFrame={onFrame}
+        onFontFamily={onFontFamily}
       />
 
       {manifest.devices.length > 1 ? (
@@ -86,10 +92,24 @@ export function Sidebar({
 
       <div className="mt-auto flex flex-col gap-4">
         <Separator />
-        <ExportPanel background={background} frame={frame} />
+        <ExportPanel
+          background={background}
+          frame={frame}
+          font={fontKey(manifest.design, fontFamily)}
+        />
       </div>
     </aside>
   );
+}
+
+/**
+ * The CLI's --font key for the current font stack: a bundled font's key when
+ * the stack names its family, "system" when it is the config's own stack
+ * (the CLI then leaves theme.fontFamily alone), else undefined.
+ */
+function fontKey(design: StoreManifest["design"], fontFamily: string): string | undefined {
+  if (fontFamily === design.theme.fontFamily) return undefined;
+  return design.fonts.find((f) => fontFamily.startsWith(`"${f.family}"`))?.key ?? "system";
 }
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {

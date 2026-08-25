@@ -5,7 +5,7 @@ import type { Design } from "../manifest";
 import { Field, Select } from "./Sidebar";
 
 /**
- * The design controls: pick a background and a bezel variant. Both are plain
+ * The design controls: pick a background, a bezel variant and a font. All are plain
  * React state owned by the App - the strip composites them in the browser, so
  * every change repaints instantly. Nothing runs until Export; copy values you
  * like into goldie.config.ts to keep them.
@@ -39,19 +39,36 @@ const FRAME_LABELS: Record<string, string> = {
   "17-pro-orange": "iPhone 17 Pro Cosmic Orange",
 };
 
+/** The previewer's "System" font choice; mirrors SYSTEM_FONT in src/fonts.ts. */
+const SYSTEM_FONT = '-apple-system, "SF Pro Display", system-ui, sans-serif';
+
 export function DesignPanel({
   design,
   background,
   frame,
+  fontFamily,
   onBackground,
   onFrame,
+  onFontFamily,
 }: {
   design: Design;
   background: string;
   frame: string;
+  fontFamily: string;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
+  onFontFamily: (v: string) => void;
 }) {
+  // Each choice is a full CSS font stack, so the Strip can use it as-is. A
+  // config stack that matches none of them shows as "custom (from config)".
+  const fontOptions: Array<[string, string]> = [
+    [SYSTEM_FONT, "System (SF Pro)"],
+    ...design.fonts.map((f): [string, string] => [`"${f.family}", ${f.fallback}`, f.family]),
+  ];
+  if (!fontOptions.some(([css]) => css === fontFamily)) {
+    fontOptions.push([fontFamily, "custom (from config)"]);
+  }
+
   const initialHexes = background.match(/#[0-9a-fA-F]{6}/g) ?? [];
 
   const [mode, setMode] = useState<Mode>("presets");
@@ -139,6 +156,10 @@ export function DesignPanel({
           />
         </Field>
       ) : null}
+
+      <Field label="Font">
+        <Select value={fontFamily} onChange={onFontFamily} options={fontOptions} />
+      </Field>
     </div>
   );
 }

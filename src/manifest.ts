@@ -11,6 +11,7 @@ import {
   variantFramePath,
 } from "./config.ts";
 import { execOrThrow } from "./exec.ts";
+import { FONTS, fontFilePath } from "./fonts.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /**
@@ -55,6 +56,13 @@ export type StoreManifest = {
     frameVariants: string[];
     /** Url of the config's custom bezel art; null when a bundled variant is used. */
     customFrameUrl: string | null;
+    /** Bundled typefaces, with the @font-face sources the previewer declares. */
+    fonts: Array<{
+      key: string;
+      family: string;
+      fallback: string;
+      faces: Array<{ weight: number; url: string }>;
+    }>;
     scenes: Array<{
       id: string;
       headline: Record<string, string>;
@@ -112,6 +120,19 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   const custom = "variant" in cfg.frame ? null : "frames/custom.png";
   if (custom) await copyFile(framePath(cfg), join(webDir, custom));
 
+  // Bundled typefaces, so the browser renders the same cuts the canvas does.
+  const fontsDir = join(webDir, "fonts");
+  await mkdir(fontsDir, { recursive: true });
+  const fonts: StoreManifest["design"]["fonts"] = [];
+  for (const [key, font] of Object.entries(FONTS)) {
+    const faces: Array<{ weight: number; url: string }> = [];
+    for (const [weight, file] of Object.entries(font.files)) {
+      await copyFile(fontFilePath(file), join(fontsDir, file));
+      faces.push({ weight: Number(weight), url: `fonts/${file}` });
+    }
+    fonts.push({ key, family: font.family, fallback: font.fallback, faces });
+  }
+
   const assets: StoreManifest["assets"] = {};
   for (const deviceKey of cfg.devices) {
     assets[deviceKey] = {};
@@ -157,6 +178,7 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
       frameVariant: "variant" in cfg.frame ? cfg.frame.variant : null,
       frameVariants: [...FRAME_VARIANTS],
       customFrameUrl: custom,
+      fonts,
       scenes: cfg.scenes.filter(isScreenshot).map(({ id, headline, subhead }) => ({
         id,
         headline,

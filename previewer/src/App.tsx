@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Strip } from "./components/Strip";
-import { loadManifest, type StoreManifest } from "./manifest";
+import { type BundledFont, loadManifest, type StoreManifest } from "./manifest";
 
 export function App() {
   const [manifest, setManifest] = useState<StoreManifest | null>(null);
@@ -31,10 +31,19 @@ function Loaded({ manifest }: { manifest: StoreManifest }) {
   const [dark, setDark] = useState(new URLSearchParams(window.location.search).get("dark") === "1");
   const [background, setBackground] = useState(design.theme.background);
   const [frame, setFrame] = useState(design.frameVariant ?? "");
+  const [fontFamily, setFontFamily] = useState(design.theme.fontFamily);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
+
+  // The bundled typefaces' @font-face rules, declared once in <head>.
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = fontFaces(design.fonts);
+    document.head.append(style);
+    return () => style.remove();
+  }, [design.fonts]);
 
   const spec = manifest.devices.find((d) => d.key === device);
   const captures = design.captures[device];
@@ -51,11 +60,13 @@ function Loaded({ manifest }: { manifest: StoreManifest }) {
         dark={dark}
         background={background}
         frame={frame}
+        fontFamily={fontFamily}
         onDevice={setDevice}
         onLocale={setLocale}
         onDark={setDark}
         onBackground={setBackground}
         onFrame={setFrame}
+        onFontFamily={setFontFamily}
       />
 
       <main className="grid flex-1 place-items-center overflow-auto p-10">
@@ -68,6 +79,7 @@ function Loaded({ manifest }: { manifest: StoreManifest }) {
               locale={locale}
               background={background}
               frameUrl={frameUrl}
+              fontFamily={fontFamily}
             />
           </div>
         ) : (
@@ -76,6 +88,18 @@ function Loaded({ manifest }: { manifest: StoreManifest }) {
       </main>
     </div>
   );
+}
+
+/** @font-face rules for the bundled typefaces the manifest lists. */
+function fontFaces(fonts: BundledFont[]): string {
+  return fonts
+    .flatMap((font) =>
+      font.faces.map(
+        (face) =>
+          `@font-face{font-family:"${font.family}";font-weight:${face.weight};font-style:normal;src:url("${face.url}") format("truetype")}`,
+      ),
+    )
+    .join("\n");
 }
 
 function Empty({ message }: { message: string }) {

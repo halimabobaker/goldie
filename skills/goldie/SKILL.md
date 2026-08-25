@@ -209,10 +209,11 @@ stale files under `out/raw/` before running it. `frame` and `manifest` take
 seconds, so run them freely. The previewer at http://localhost:4321 picks up
 changes on reload; start it again with `GOLDIE_CONFIG` if it is not running.
 
-The previewer's Generate panel and the CLI's `--background` / `--frame`
-flags are one-run overrides that never touch the config. If the user tried a
-preset there and wants to keep it, copy the CSS or variant into `theme.background`
-or `frame.variant` so the next re-prompt starts from what they see. The
+The previewer's Generate panel and the CLI's `--background` / `--frame` /
+`--font` flags are one-run overrides that never touch the config. If the user
+tried a preset there and wants to keep it, copy the CSS, variant or font stack
+into `theme.background`, `frame.variant` or `theme.fontFamily` so the next
+re-prompt starts from what they see. The
 current on-disk values are also in `goldie/out/web/store.json` under `design`,
 which is the fastest way to confirm what the previewer is showing right now.
 

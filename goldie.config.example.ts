@@ -33,6 +33,8 @@ const config: GoldieConfig = {
     background: "linear-gradient(160deg, #E8F1FF 0%, #F7FAFF 55%, #FFFFFF 100%)",
     headlineColor: "#0E1B2A",
     subheadColor: "#5A6A7D",
+    // System stack, or a bundled typeface first: "Merriweather", "DM Mono",
+    // "Lato", "DM Sans", "Montserrat" (see src/fonts.ts).
     fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
     copyHeightRatio: 0.24,
     deviceWidthRatio: 0.84,

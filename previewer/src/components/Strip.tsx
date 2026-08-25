@@ -22,6 +22,7 @@ export function Strip({
   locale,
   background,
   frameUrl,
+  fontFamily,
 }: {
   design: Design;
   captures: DeviceCaptures;
@@ -29,6 +30,7 @@ export function Strip({
   locale: string;
   background: string;
   frameUrl: string;
+  fontFamily: string;
 }) {
   const theme = design.theme;
 
@@ -87,6 +89,7 @@ export function Strip({
             theme={theme}
             background={background}
             frameUrl={frameUrl}
+            fontFamily={fontFamily}
             headline={scene.headline[locale] ?? ""}
             subhead={scene.subhead?.[locale]}
             headlineColor={headlineColor}
@@ -149,6 +152,7 @@ function ScreenshotScene({
   theme,
   background,
   frameUrl,
+  fontFamily,
   headline,
   subhead,
   headlineColor,
@@ -159,6 +163,7 @@ function ScreenshotScene({
   theme: Theme;
   background: string;
   frameUrl: string;
+  fontFamily: string;
   headline: string;
   subhead: string | undefined;
   headlineColor: string;
@@ -167,7 +172,7 @@ function ScreenshotScene({
 }) {
   const g = geometry(spec, theme);
   return (
-    <Canvas background={background} fontFamily={theme.fontFamily}>
+    <Canvas background={background} fontFamily={fontFamily}>
       <div
         style={{
           position: "absolute",

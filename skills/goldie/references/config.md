@@ -32,6 +32,8 @@ const config: GoldieConfig = {
     background: "linear-gradient(160deg, #E8F1FF 0%, #F7FAFF 55%, #FFFFFF 100%)",
     headlineColor: "#0E1B2A",    // must contrast with the background;
     subheadColor: "#5A6A7D",     // light text on a dark background and vice versa
+    // The system stack, or a bundled typeface named first: "Merriweather",
+    // "DM Mono", "Lato", "DM Sans", "Montserrat" (files in $GOLDIE/assets/fonts).
     fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
     copyHeightRatio: 0.24,       // fraction of frame height reserved for copy
     deviceWidthRatio: 0.84,      // fraction of frame width the bezel occupies

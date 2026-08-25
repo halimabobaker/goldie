@@ -8,7 +8,16 @@ import { Button } from "@/components/ui/button";
  * and hands the browser the zip. Streams the CLI log while it runs (the video
  * render takes a while). Dev server only - a static build has no /api/export.
  */
-export function ExportPanel({ background, frame }: { background: string; frame: string }) {
+export function ExportPanel({
+  background,
+  frame,
+  font,
+}: {
+  background: string;
+  frame: string;
+  /** A --font key, or undefined to keep the config's font. */
+  font: string | undefined;
+}) {
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string | null>(null);
   const logRef = useRef<HTMLPreElement>(null);
@@ -27,7 +36,7 @@ export function ExportPanel({ background, frame }: { background: string; frame: 
       const res = await fetch("/api/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ background, frame }),
+        body: JSON.stringify({ background, frame, font }),
       });
       if (!res.ok || !res.body) {
         setLog(`${res.status}: ${await res.text()}`);

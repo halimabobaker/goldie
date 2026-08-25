@@ -70,12 +70,13 @@ Each tile is the exact file for upload. The sidebar lists each file with its
 size and weight. A row turns red when the file breaks Apple's rules.
 
 The dev server can also regenerate assets. The Generate panel has 16 background
-presets, a gradient picker, a color picker, a CSS field, and a bezel dropdown.
+presets, a gradient picker, a color picker, a CSS field, a bezel dropdown, and
+a font dropdown.
 When you change a value, the server runs the render pipeline again on the
 existing raw captures and streams the log. The video is behind an "Include
 video" toggle because it takes some minutes. The CLI has the same overrides:
-`--background` and `--frame`. They apply to one run only. `goldie.config.ts`
-stays the source of truth.
+`--background`, `--frame` and `--font`. They apply to one run only.
+`goldie.config.ts` stays the source of truth.
 
 The app reads `out/web/`: the manifest and symlinks to the finished
 assets. `out/raw` and `out/stage` are outside it. Because of this,
@@ -160,6 +161,21 @@ frame: { variant: "17-pro-blue" }   // or "17-pro-silver", "17-pro-orange"
 All bundled variants share the cutout geometry in `src/frame.ts`. Custom
 bezel art works too: `frame: { image: "path/to/bezel.png" }`, relative to the
 config file. Measure its geometry from its alpha channel.
+
+## Choose a font for the copy
+
+`theme.fontFamily` is a CSS font stack. The system stack (SF Pro) needs no
+setup. Five typefaces ship in `assets/fonts/` (Google Fonts, OFL):
+Merriweather, DM Mono, Lato, DM Sans and Montserrat. Name one first in the
+stack and both the renderer and the previewer use the bundled files:
+
+```ts
+fontFamily: '"DM Sans", system-ui, sans-serif'
+```
+
+`src/fonts.ts` lists the keys for the CLI (`--font dm-sans`) and the
+previewer's Font dropdown. Other fonts must be installed on the machine that
+renders, and the previewer's browser needs them too.
 
 ## Add a device size
 

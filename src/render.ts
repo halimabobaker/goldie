@@ -4,6 +4,7 @@ import { type CanvasGradient, createCanvas, loadImage, type SKRSContext2D } from
 import type { CaptureManifest } from "./capture.ts";
 import { framePath, isPreview, isScreenshot, type LoadedConfig } from "./config.ts";
 import { exec, execOrThrow } from "./exec.ts";
+import { registerFonts } from "./fonts.ts";
 import { layout } from "./frame.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
 
@@ -28,6 +29,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
   const outDir = join(cfg.outDir, "screenshots", spec.label, locale);
   await mkdir(outDir, { recursive: true });
   const bezel = await loadImage(framePath(cfg));
+  registerFonts();
 
   const { width, height } = spec.screenshot;
   const copyHeight = height * cfg.theme.copyHeightRatio;

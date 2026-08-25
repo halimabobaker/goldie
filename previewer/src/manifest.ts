@@ -25,6 +25,13 @@ export type DesignScene = {
   subhead?: Record<string, string>;
 };
 
+export type BundledFont = {
+  key: string;
+  family: string;
+  fallback: string;
+  faces: Array<{ weight: number; url: string }>;
+};
+
 export type DeviceCaptures = {
   screenshots: Array<{ sceneId: string; url: string }>;
   clips: Array<{ segmentId: string; url: string; durationSeconds: number }> | null;
@@ -36,6 +43,8 @@ export type Design = {
   frameVariant: string | null;
   frameVariants: string[];
   customFrameUrl: string | null;
+  /** Bundled typefaces with the @font-face sources to declare. */
+  fonts: BundledFont[];
   scenes: DesignScene[];
   preview: {
     sceneId: string;
@@ -71,7 +80,7 @@ export async function loadManifest(): Promise<StoreManifest> {
     );
   }
   const manifest: StoreManifest = await res.json();
-  if (!manifest.design) {
+  if (!manifest.design?.fonts) {
     throw new Error(
       "out/store.json predates browser-side composition. Re-run: bun src/cli.ts manifest",
     );

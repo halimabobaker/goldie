@@ -9,6 +9,7 @@ import {
 } from "./config.ts";
 import * as device from "./device.ts";
 import { doctor } from "./doctor.ts";
+import { FONT_KEYS, fontStack } from "./fonts.ts";
 import { writeManifest } from "./manifest.ts";
 import { renderPreview, renderScreenshots, verify } from "./render.ts";
 import { FlowFailure, repairBrief } from "./repair.ts";
@@ -31,6 +32,7 @@ Options
   --locale <code>   Only this locale (default: every locale in the config)
   --background <css>  Override theme.background for this run (also clears per-scene backgrounds)
   --frame <variant>   Override the screenshot bezel variant for this run (17-pro-silver | 17-pro-blue | 17-pro-orange)
+  --font <key>        Override theme.fontFamily for this run (system | ${FONT_KEYS.join(" | ")})
 `;
 
 async function main() {
@@ -68,6 +70,8 @@ async function main() {
     cfg.frame = { variant: frame as FrameVariant };
     framePath(cfg); // throws on an unknown variant
   }
+  const font = opt("font");
+  if (font) cfg.theme.fontFamily = fontStack(font); // throws on an unknown key
 
   const devices = (opt("device") ? [opt("device") as DeviceKey] : cfg.devices) as DeviceKey[];
   const locales = opt("locale") ? [opt("locale")!] : cfg.locales;
