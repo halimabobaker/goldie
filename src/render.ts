@@ -1,13 +1,11 @@
-import { mkdir, copyFile, writeFile, rm, readFile, stat } from "node:fs/promises";
+import { mkdir, writeFile, readFile, stat, rm } from "node:fs/promises";
 import { join, resolve, basename } from "node:path";
-import { bundle } from "@remotion/bundler";
-import { openBrowser, renderStill, selectComposition } from "@remotion/renderer";
+import { createCanvas, loadImage, type CanvasGradient, type SKRSContext2D } from "@napi-rs/canvas";
 import { execOrThrow, exec } from "./exec.ts";
 import { DEVICES, PREVIEW, SCREENSHOT_PIXEL_FORMAT, type DeviceKey } from "./specs.ts";
 import { framePath, isPreview, isScreenshot, type LoadedConfig } from "./config.ts";
+import { layout } from "./frame.ts";
 import type { CaptureManifest } from "./capture.ts";
-
-const ENTRY = "remotion/index.ts";
 
 async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<CaptureManifest> {
   const file = join(cfg.outDir, "raw", deviceKey, "manifest.json");
@@ -19,131 +17,212 @@ async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<Ca
 }
 
 /**
- * Remotion resolves staticFile() against one public dir and rejects ".."
- * segments, so every asset a render touches is copied into out/stage first.
+ * Composites each raw screenshot into the bezel on the theme background with
+ * the scene copy above it. Drawn with a 2D canvas: the geometry comes from
+ * frame.ts and the type sizes mirror the previewer's ScreenshotScene, so the
+ * export is what the browser showed.
  */
-async function stage(cfg: LoadedConfig, files: string[]): Promise<string> {
-  const dir = join(cfg.outDir, "stage");
-  await rm(dir, { recursive: true, force: true });
-  await mkdir(dir, { recursive: true });
-  await copyFile(framePath(cfg), join(dir, "frame.png"));
-  for (const f of files) await copyFile(f, join(dir, basename(f)));
-  return dir;
-}
-
-/**
- * Stills render at half scale as JPEG and ffmpeg upscales them back to the
- * spec size. Chrome paints a quarter of the pixels and skips PNG encoding,
- * which together with the shared bundle and browser below is what makes a
- * regenerate fast. Set the scale to 1 for pixel-exact final art.
- */
-const STILL_SCALE = 0.5;
-const STILL_JPEG_QUALITY = 80;
-
 export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string) {
   const spec = DEVICES[deviceKey];
   const manifest = await readManifest(cfg, deviceKey);
-  const stageDir = await stage(cfg, manifest.screenshots.map((s) => s.file));
   const outDir = join(cfg.outDir, "screenshots", spec.label, locale);
   await mkdir(outDir, { recursive: true });
+  const bezel = await loadImage(framePath(cfg));
+
+  const { width, height } = spec.screenshot;
+  const copyHeight = height * cfg.theme.copyHeightRatio;
+  const { frame, screen } = layout({ width, height }, cfg.theme.deviceWidthRatio, copyHeight, height * 0.03);
 
   const scenes = cfg.scenes.filter(isScreenshot);
-  const jobs = scenes.map((scene, i) => {
+  return Promise.all(scenes.map(async (scene, index) => {
     const shot = manifest.screenshots.find((s) => s.sceneId === scene.id);
     if (!shot) throw new Error(`Scene "${scene.id}" is in the config but not in the capture manifest.`);
-    return {
-      scene,
-      index: i,
-      props: {
-        capture: basename(shot.file),
-        headline: pick(scene.headline, locale, scene.id, "headline"),
-        subhead: scene.subhead ? pick(scene.subhead, locale, scene.id, "subhead") : undefined,
-        background: scene.background ?? cfg.theme.background,
-        headlineColor: cfg.theme.headlineColor,
-        subheadColor: cfg.theme.subheadColor,
-        fontFamily: cfg.theme.fontFamily,
-        copyHeightRatio: cfg.theme.copyHeightRatio,
-        deviceWidthRatio: cfg.theme.deviceWidthRatio,
-        width: spec.screenshot.width,
-        height: spec.screenshot.height,
-      },
-    };
-  });
+    console.log(`  frame ${scene.id}`);
 
-  // One webpack bundle and one browser serve every scene; each render only
-  // pays for its own page.
-  console.log("  bundle remotion project");
-  const serveUrl = await bundle({ entryPoint: resolve(cfg.root, ENTRY), publicDir: stageDir });
-  const browser = await openBrowser("chrome");
-  try {
-    // renderStill draws the props resolved into the composition, so the
-    // per-scene props must go through selectComposition, not just renderStill.
-    // Resolved sequentially: concurrent selectComposition calls on one browser
-    // hang in its setup phase, and each lookup is cheap anyway.
-    const compositions = [];
-    for (const { props } of jobs) {
-      compositions.push(await selectComposition({
-        serveUrl,
-        id: "Screenshot",
-        inputProps: props,
-        puppeteerInstance: browser,
-        logLevel: "error",
-      }));
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = paint(ctx, scene.background ?? cfg.theme.background, width, height);
+    ctx.fillRect(0, 0, width, height);
+
+    // Copy block: headline, then the subhead, centred inside the copy area.
+    const padX = width * 0.09;
+    let y = height * 0.055;
+    y = drawText(ctx, {
+      text: pick(scene.headline, locale, scene.id, "headline"),
+      font: `700 ${width * 0.082}px ${cfg.theme.fontFamily}`,
+      color: cfg.theme.headlineColor,
+      lineHeight: 1.08,
+      letterSpacing: -width * 0.0016,
+      x: width / 2, y, maxWidth: width - 2 * padX,
+    });
+    if (scene.subhead) {
+      drawText(ctx, {
+        text: pick(scene.subhead, locale, scene.id, "subhead"),
+        font: `400 ${width * 0.038}px ${cfg.theme.fontFamily}`,
+        color: cfg.theme.subheadColor,
+        lineHeight: 1.3,
+        letterSpacing: 0,
+        x: width / 2, y: y + height * 0.014, maxWidth: width - 2 * padX,
+      });
     }
 
-    return await Promise.all(jobs.map(async ({ scene, index, props }, j) => {
-      console.log(`  frame ${scene.id}`);
-      const composition = compositions[j]!;
-      const raw = join(stageDir, `${scene.id}.render.jpeg`);
-      await renderStill({
-        composition,
-        serveUrl,
-        output: raw,
-        inputProps: props,
-        imageFormat: "jpeg",
-        jpegQuality: STILL_JPEG_QUALITY,
-        scale: STILL_SCALE,
-        puppeteerInstance: browser,
-        logLevel: "error",
-      });
+    // Screen first, bezel on top: the bezel's cutout is transparent.
+    const capture = await loadImage(shot.file);
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.borderRadius);
+    ctx.clip();
+    const scale = Math.max(screen.width / capture.width, screen.height / capture.height);
+    const w = capture.width * scale;
+    const h = capture.height * scale;
+    ctx.drawImage(capture, screen.left + (screen.width - w) / 2, screen.top + (screen.height - h) / 2, w, h);
+    ctx.restore();
+    ctx.drawImage(bezel, frame.left, frame.top, frame.width, frame.height);
 
-      // App Store rejects screenshots carrying an alpha channel.
-      const final = join(outDir, `${String(index + 1).padStart(2, "0")}-${scene.id}.png`);
-      await execOrThrow("ffmpeg", [
-        "-y", "-loglevel", "error", "-i", raw,
-        "-vf", `scale=${spec.screenshot.width}:${spec.screenshot.height}:flags=lanczos`,
-        "-pix_fmt", SCREENSHOT_PIXEL_FORMAT, final,
-      ]);
-      return final;
-    }));
-  } finally {
-    await browser.close({ silent: true });
-  }
+    // App Store rejects screenshots carrying an alpha channel, and the canvas
+    // always encodes RGBA, so ffmpeg strips it on the way out.
+    const raw = join(outDir, `.${scene.id}.rgba.png`);
+    await writeFile(raw, await canvas.encode("png"));
+    const final = join(outDir, `${String(index + 1).padStart(2, "0")}-${scene.id}.png`);
+    await execOrThrow("ffmpeg", ["-y", "-loglevel", "error", "-i", raw, "-pix_fmt", SCREENSHOT_PIXEL_FORMAT, final]);
+    await rm(raw, { force: true });
+    return final;
+  }));
 }
 
+/**
+ * Word-wraps and draws centred text starting at `y`. Returns the y below the
+ * last line.
+ */
+function drawText(
+  ctx: SKRSContext2D,
+  o: { text: string; font: string; color: string; lineHeight: number; letterSpacing: number; x: number; y: number; maxWidth: number },
+): number {
+  ctx.font = o.font;
+  ctx.fillStyle = o.color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.letterSpacing = `${o.letterSpacing}px`;
+  const size = Number(o.font.match(/(\d+(?:\.\d+)?)px/)?.[1]);
+  const step = size * o.lineHeight;
+
+  const lines: string[] = [];
+  for (const paragraph of o.text.split("\n")) {
+    let line = "";
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > o.maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    lines.push(line);
+  }
+
+  let y = o.y;
+  for (const line of lines) {
+    // Centre the glyph box inside the line box, as CSS line-height does.
+    ctx.fillText(line, o.x, y + (step - size) / 2);
+    y += step;
+  }
+  return y;
+}
+
+/**
+ * A canvas fill for a CSS background: a plain color, or a `linear-gradient()`
+ * with an optional angle / `to <side>` and color stops with optional
+ * percentages. Anything else is handed to the canvas as-is.
+ */
+function paint(ctx: SKRSContext2D, css: string, width: number, height: number): string | CanvasGradient {
+  const m = css.trim().match(/^linear-gradient\((.*)\)$/s);
+  if (!m) return css;
+  const parts = splitTopLevel(m[1]!);
+
+  let angle = 180;
+  const first = parts[0]!.trim();
+  const deg = first.match(/^(-?\d+(?:\.\d+)?)deg$/);
+  if (deg) {
+    angle = Number(deg[1]);
+    parts.shift();
+  } else if (first.startsWith("to ")) {
+    const sides: Record<string, number> = { top: 0, right: 90, bottom: 180, left: 270 };
+    const words = first.slice(3).split(/\s+/);
+    const angles = words.map((w) => sides[w]).filter((a): a is number => a !== undefined);
+    if (angles.length === 2 && angles.includes(0) && angles.includes(270)) angle = 315;
+    else if (angles.length === 2) angle = (angles[0]! + angles[1]!) / 2;
+    else if (angles.length === 1) angle = angles[0]!;
+    parts.shift();
+  }
+
+  // CSS gradient line: through the centre, long enough that the corners meet
+  // the first and last stop exactly.
+  const rad = (angle * Math.PI) / 180;
+  const length = Math.abs(width * Math.sin(rad)) + Math.abs(height * Math.cos(rad));
+  const dx = (Math.sin(rad) * length) / 2;
+  const dy = (-Math.cos(rad) * length) / 2;
+  const gradient = ctx.createLinearGradient(width / 2 - dx, height / 2 - dy, width / 2 + dx, height / 2 + dy);
+
+  const stops = parts.map((p) => {
+    const s = p.trim().match(/^(.*?)(?:\s+(-?\d+(?:\.\d+)?)%)?$/);
+    return { color: s![1]!.trim(), at: s![2] !== undefined ? Number(s![2]) / 100 : undefined };
+  });
+  if (stops.length && stops[0]!.at === undefined) stops[0]!.at = 0;
+  if (stops.length && stops[stops.length - 1]!.at === undefined) stops[stops.length - 1]!.at = 1;
+  for (let i = 0; i < stops.length; i++) {
+    if (stops[i]!.at !== undefined) continue;
+    let j = i;
+    while (stops[j]!.at === undefined) j++;
+    const from = stops[i - 1]!.at!;
+    const to = stops[j]!.at!;
+    for (let k = i; k < j; k++) stops[k]!.at = from + ((to - from) * (k - i + 1)) / (j - i + 1);
+  }
+  let last = 0;
+  for (const s of stops) {
+    last = Math.min(1, Math.max(last, s.at!));
+    gradient.addColorStop(last, s.color);
+  }
+  return gradient;
+}
+
+/** Splits on commas that are not inside parentheses (rgb(), hsl()). */
+function splitTopLevel(s: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of s) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+/**
+ * Joins the raw segment clips into one plain screen recording at the upload
+ * size. App Store previews must be the device screen and nothing else, so no
+ * bezel, background or captions are added; only an audio track, which Apple
+ * requires even when it is silent.
+ */
 export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string) {
   const spec = DEVICES[deviceKey];
-  const manifest = await readManifest(cfg, deviceKey);
-  if (!manifest.preview) throw new Error("No preview clips in the capture manifest.");
-
   const scene = cfg.scenes.find(isPreview);
-  if (!scene) throw new Error("No preview scene in the config.");
+  if (!scene) return null;
+  const manifest = await readManifest(cfg, deviceKey);
+  if (!manifest.preview) throw new Error("No preview clips in the capture manifest. Run: gilded capture");
 
-  const assets = manifest.preview.clips.map((c) => c.file);
-  if (scene.audio) assets.push(resolve(cfg.root, scene.audio));
-  const stageDir = await stage(cfg, assets);
-
-  const clips = manifest.preview.clips.map((clip) => {
-    const segment = scene.segments.find((s) => s.id === clip.segmentId);
-    if (!segment) throw new Error(`Clip "${clip.segmentId}" has no matching segment in the config.`);
-    return {
-      file: basename(clip.file),
-      caption: pick(segment.caption, locale, segment.id, "caption"),
-      durationInFrames: Math.round(clip.durationSeconds * PREVIEW.fps),
-    };
+  const clips = scene.segments.map((segment) => {
+    const clip = manifest.preview!.clips.find((c) => c.segmentId === segment.id);
+    if (!clip) throw new Error(`Segment "${segment.id}" is in the config but not in the capture manifest.`);
+    return clip;
   });
 
-  const seconds = clips.reduce((s, c) => s + c.durationInFrames, 0) / PREVIEW.fps;
+  const seconds = clips.reduce((s, c) => s + c.durationSeconds, 0);
   if (seconds < PREVIEW.minSeconds || seconds > PREVIEW.maxSeconds) {
     throw new Error(
       `Preview is ${seconds.toFixed(1)}s; Apple requires ${PREVIEW.minSeconds}-${PREVIEW.maxSeconds}s. ` +
@@ -151,34 +230,31 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
     );
   }
 
-  const props = {
-    clips,
-    audio: scene.audio ? basename(scene.audio) : undefined,
-    background: cfg.theme.background,
-    captionColor: cfg.theme.headlineColor,
-    fontFamily: cfg.theme.fontFamily,
-    copyHeightRatio: cfg.theme.copyHeightRatio,
-    deviceWidthRatio: cfg.theme.deviceWidthRatio,
-  };
-  const propsFile = join(stageDir, "preview.props.json");
-  await writeFile(propsFile, JSON.stringify(props));
-
   const outDir = join(cfg.outDir, "previews", spec.label, locale);
   await mkdir(outDir, { recursive: true });
+  const list = join(outDir, `.${scene.id}.clips.txt`);
+  await writeFile(list, clips.map((c) => `file '${c.file.replace(/'/g, "'\\''")}'`).join("\n"));
   const final = join(outDir, `${scene.id}.mp4`);
 
+  const { width, height } = spec.preview;
+  const audio = scene.audio
+    ? ["-i", resolve(cfg.root, scene.audio), "-filter:a", "volume=0.35"]
+    : ["-f", "lavfi", "-i", `anullsrc=r=${PREVIEW.audioSampleRate}:cl=stereo`];
+
   console.log(`  render preview (${seconds.toFixed(1)}s)`);
-  await execOrThrow("bunx", [
-    "remotion", "render", ENTRY, "Preview", final,
-    `--props=${propsFile}`, `--public-dir=${stageDir}`,
-    "--codec=h264",
-    `--video-bitrate=${PREVIEW.videoBitrate}`,
-    "--audio-codec=aac",
-    `--audio-bitrate=${PREVIEW.audioBitrate}`,
-    // Apple requires an enabled audio track even when the preview is silent.
-    "--enforce-audio-track",
-    "--log=error",
-  ], { cwd: cfg.root });
+  await execOrThrow("ffmpeg", [
+    "-y", "-loglevel", "error",
+    "-f", "concat", "-safe", "0", "-i", list,
+    ...audio,
+    "-map", "0:v:0", "-map", "1:a:0",
+    // Cover the upload size and crop the sliver the aspect ratios disagree on.
+    "-vf", `scale=${width}:${height}:force_original_aspect_ratio=increase:flags=lanczos,crop=${width}:${height},fps=${PREVIEW.fps},format=yuv420p`,
+    "-c:v", "libx264", "-profile:v", "high", "-b:v", PREVIEW.videoBitrate,
+    "-c:a", "aac", "-b:a", PREVIEW.audioBitrate, "-ar", String(PREVIEW.audioSampleRate),
+    "-shortest", "-movflags", "+faststart",
+    final,
+  ]);
+  await rm(list, { force: true });
 
   return final;
 }

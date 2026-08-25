@@ -62,7 +62,7 @@ export type StoreManifest = {
     }>;
     preview: {
       sceneId: string;
-      segments: Array<{ id: string; caption: Record<string, string> }>;
+      segments: Array<{ id: string }>;
     } | null;
     /** Raw capture urls per device key; a device is absent until `gilded capture` ran. */
     captures: Record<
@@ -84,7 +84,6 @@ export type LocaleAssets = {
     height: number;
     bytes: number;
     durationSeconds: number;
-    captions: string[];
   } | null;
 };
 
@@ -160,7 +159,7 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
       preview: previewScene
         ? {
             sceneId: previewScene.id,
-            segments: previewScene.segments.map(({ id, caption }) => ({ id, caption })),
+            segments: previewScene.segments.map(({ id }) => ({ id })),
           }
         : null,
       captures,
@@ -215,7 +214,6 @@ async function collect(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string):
       url: `previews/${label}/${locale}/${previewName}`,
       ...probe,
       bytes: (await stat(file)).size,
-      captions: previewScene.segments.map((s) => s.caption[locale] ?? ""),
     };
   }
 

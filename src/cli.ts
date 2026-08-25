@@ -14,7 +14,7 @@ gilded - App Store screenshots and previews, driven by argent
   gilded doctor     Check the toolchain, simulators, flags and flows
   gilded capture    Replay every scene flow and save raw captures
   gilded frame      Composite raw screenshots into framed, captioned PNGs
-  gilded preview    Composite raw clips into the app preview video
+  gilded preview    Join the raw clips into the app preview video
   gilded verify     Check finished assets against Apple's spec table
   gilded manifest   Write out/store.json for the previewer app
   gilded all        capture -> frame -> preview -> manifest -> verify
@@ -24,7 +24,7 @@ Options
   --device <key>    Only this device key (default: every device in the config)
   --locale <code>   Only this locale (default: every locale in the config)
   --background <css>  Override theme.background for this run (also clears per-scene backgrounds)
-  --frame <variant>   Override the bezel variant for this run (17-pro-silver | 17-pro-blue | 17-pro-orange)
+  --frame <variant>   Override the screenshot bezel variant for this run (17-pro-silver | 17-pro-blue | 17-pro-orange)
 `;
 
 async function main() {

@@ -11,7 +11,7 @@ export const FRAME = {
   /**
    * Corner radius of the screen cutout. The bezel ring is thinner than this
    * radius, so square screen content would poke past the phone's outer corner;
-   * compositions clip the content with the scaled radius instead.
+   * the compositor clips the content with the scaled radius instead.
    */
   screenRadius: 82,
 } as const;

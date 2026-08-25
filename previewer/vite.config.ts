@@ -20,7 +20,7 @@ const EXPORT_ZIP = join(OUT_DIR, "export.zip");
  * Nothing is copied into the previewer, so a re-run of `gilded capture` shows
  * up on reload. Run `gilded manifest` first; the directory does not exist
  * before that. `fs.allow` covers the gilded root because the previewer imports
- * remotion/frame.ts for the shared bezel geometry.
+ * src/frame.ts for the shared bezel geometry.
  */
 export default defineConfig({
   plugins: [react(), tailwindcss(), gildedApi()],

@@ -25,8 +25,8 @@ const config: GildedConfig = {
   locales: ["en-US"],
   appearance: "light",
 
-  // Bundled bezel art: "17-pro-silver" | "17-pro-blue" | "17-pro-orange".
-  // Custom art instead: frame: { image: "path/to/bezel.png" } (re-measure remotion/frame.ts).
+  // Bundled bezel art for the screenshots: "17-pro-silver" | "17-pro-blue" | "17-pro-orange".
+  // Custom art instead: frame: { image: "path/to/bezel.png" } (re-measure src/frame.ts).
   frame: { variant: "17-pro-blue" },
 
   theme: {
@@ -63,9 +63,10 @@ const config: GildedConfig = {
       subhead: { "en-US": "One short sentence expanding the headline." },
     },
 
-    // One preview scene. Each segment is its own flow and clip; its caption
-    // stays on screen for the clip's measured duration. Total video length
-    // must land between 15 and 30 seconds.
+    // One preview scene. Each segment is its own flow and clip; the clips are
+    // joined as recorded, since Apple requires a plain screen recording (no
+    // bezel or captions). Total video length must land between 15 and 30
+    // seconds.
     {
       kind: "preview",
       id: "preview",
@@ -73,12 +74,10 @@ const config: GildedConfig = {
         {
           id: "open",
           flow: "store-preview-01-open",
-          caption: { "en-US": "Your work, in one place" },
         },
         {
           id: "act",
           flow: "store-preview-02-act",
-          caption: { "en-US": "Do the core thing" },
           holdSeconds: 2,
         },
       ],

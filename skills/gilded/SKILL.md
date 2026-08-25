@@ -3,7 +3,7 @@ name: gilded
 description: >-
   Create App Store screenshots and app preview videos for an iOS app with the
   gilded toolkit: explore the app on a simulator, author argent flows for its
-  key user flows, render framed and captioned store assets, and open a local
+  key user flows, render framed screenshots and a plain preview video, and open a local
   previewer showing the finished store page. Use this whenever the user asks
   for App Store screenshots, store assets, marketing screenshots, an app
   preview video, or mentions gilded, even if they only say something like
@@ -14,8 +14,10 @@ description: >-
 # gilded: App Store assets for the app in this repo
 
 gilded replays argent YAML flows on an iOS simulator, captures raw screenshots
-and recordings, and composites them with Remotion into upload-ready assets: a
-device bezel, a background, and marketing captions. A React previewer shows the
+and recordings, and turns them into upload-ready assets: screenshots get a
+device bezel, a background, and marketing copy; the preview video is the raw
+recordings joined as-is, since Apple requires app previews to be a plain
+screen recording with no framing or captions. A React previewer shows the
 result as the real store page. Your job is everything gilded cannot do alone:
 pick the screens worth marketing, author the flows that reach them, write the
 copy, and drive the pipeline.
@@ -63,7 +65,8 @@ Choose:
   screens with real-looking content.
 - **A 3 or 4 segment preview story.** One short user journey told in order,
   for example: see the main screen, start a core action, complete it, see the
-  result. Each segment becomes one clip with one caption, and the total video
+  result. Each segment becomes one clip. The clips are joined with no
+  captions or framing, so each step must read on its own, and the total video
   must land between 15 and 30 seconds.
 
 While exploring, note the exact visible text labels and accessibility ids you

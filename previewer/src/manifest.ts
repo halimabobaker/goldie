@@ -39,7 +39,7 @@ export type Design = {
   scenes: DesignScene[];
   preview: {
     sceneId: string;
-    segments: Array<{ id: string; caption: Record<string, string> }>;
+    segments: Array<{ id: string }>;
   } | null;
   /** Raw capture urls per device key; a device is absent until `gilded capture` ran. */
   captures: Record<string, DeviceCaptures>;

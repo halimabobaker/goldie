@@ -1,12 +1,16 @@
 {
   "name": "gilded",
   "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "description": "App Store screenshot and preview automation driven by argent + Remotion",
+  "devDependencies": {
+    "@swmansion/argent": "^0.22.0",
+    "@types/bun": "^1.4.0",
+    "typescript": "5.9.3"
+  },
   "bin": {
     "gilded": "./src/cli.ts"
   },
+  "description": "App Store screenshot and preview automation driven by argent",
+  "private": true,
   "scripts": {
     "gilded": "bun src/cli.ts",
     "doctor": "bun src/cli.ts doctor",
@@ -15,24 +19,11 @@
     "frame": "bun src/cli.ts frame",
     "preview": "bun src/cli.ts preview",
     "all": "bun src/cli.ts all",
-    "studio": "remotion studio remotion/index.ts",
     "previewer": "bun src/cli.ts manifest && cd previewer && bun install --silent && bun run dev",
     "previewer:build": "bun src/cli.ts manifest && cd previewer && bun install --silent && bun run build"
   },
+  "type": "module",
   "dependencies": {
-    "@remotion/bundler": "4.0.514",
-    "@remotion/cli": "4.0.514",
-    "@remotion/google-fonts": "4.0.514",
-    "@remotion/media": "4.0.514",
-    "@remotion/renderer": "4.0.514",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "remotion": "4.0.514"
-  },
-  "devDependencies": {
-    "@swmansion/argent": "^0.22.0",
-    "@types/bun": "^1.4.0",
-    "@types/react": "19.2.7",
-    "typescript": "5.9.3"
+    "@napi-rs/canvas": "^1.0.8"
   }
 }

@@ -25,11 +25,10 @@ export type ScreenshotScene = {
 /**
  * The app preview video, built from short segments.
  *
- * Each segment is its own flow recorded into its own clip, so a caption's
- * on-screen timing is the clip's measured duration - exact by construction.
- * (Recording one long flow instead would mean hand-counting frames to place
- * captions, which is what ~/Dev/argent-remotion-flows/src/flow/timeline.ts
- * had to do.)
+ * Apple requires a preview to be a plain recording of the device screen, so
+ * the segments are joined as captured: no bezel, background or captions.
+ * Each segment is its own flow recorded into its own clip, which keeps a
+ * single broken step from forcing a re-record of the whole story.
  */
 export type PreviewScene = {
   kind: "preview";
@@ -38,7 +37,6 @@ export type PreviewScene = {
     id: string;
     /** Flow in the app's `.argent/flows`, same forms as a screenshot scene's. */
     flow: string;
-    caption: Record<Locale, string>;
     /** Hold the last frame this long after the flow ends, in seconds. */
     holdSeconds?: number;
   }>;
@@ -53,9 +51,9 @@ export type Theme = {
   headlineColor: string;
   subheadColor: string;
   fontFamily: string;
-  /** Fraction of the frame height reserved for copy above the device. */
+  /** Fraction of the screenshot height reserved for copy above the device. */
   copyHeightRatio: number;
-  /** Fraction of the frame width the device bezel occupies. */
+  /** Fraction of the screenshot width the device bezel occupies. */
   deviceWidthRatio: number;
 };
 
@@ -96,10 +94,10 @@ export type GildedConfig = {
   /** Simulator appearance for every capture. */
   appearance: "light" | "dark";
   /**
-   * Device bezel art. Either a bundled variant from assets/ (all variants
-   * share the cutout geometry in remotion/frame.ts) or a custom PNG with a
-   * transparent screen cutout, relative to the config file. Custom art means
-   * re-measuring the geometry in remotion/frame.ts.
+   * Device bezel art for the screenshots. Either a bundled variant from
+   * assets/ (all variants share the cutout geometry in src/frame.ts) or a
+   * custom PNG with a transparent screen cutout, relative to the config file.
+   * Custom art means re-measuring the geometry in src/frame.ts.
    */
   frame: { variant: FrameVariant } | { image: string };
   theme: Theme;

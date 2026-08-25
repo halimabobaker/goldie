@@ -3,8 +3,10 @@
 gilded makes App Store screenshots and app preview videos for an iOS app.
 [argent](https://github.com/software-mansion/argent) replays YAML flows on a
 simulator and captures raw images and recordings.
-[Remotion](https://remotion.dev) adds the device frame, the background, and the
-captions. The output matches Apple's upload rules.
+gilded composites the screenshots with a device frame, a background, and
+headline copy, and joins the recordings into a plain preview video, since
+Apple requires app previews to show the device screen and nothing else. The
+output matches Apple's upload rules.
 
 ```
 gilded doctor     Check the tools, simulators, flags and flows
@@ -84,15 +86,15 @@ build has no API. It is a viewer only.
 3. **capture** - Replay each flow with `argent flow run`. A screenshot scene
    ends with a full-resolution `screenshot` call. Each preview segment has its
    own `screen-recording-start` and `screen-recording-stop` pair.
-4. **composite** - Remotion renders the stills and the video from the raw
-   captures, the bezel, and the config text.
+4. **composite** - The stills are drawn on a canvas from the raw captures,
+   the bezel, and the config text. The video is an ffmpeg join of the raw
+   clips, scaled to the upload size.
 
 ## Preview timing
 
-The preview is one short clip for each caption. A caption stays on screen for
-the measured length of its clip. This stays correct after a re-record. The old
-approach was one long recording with hand-counted frame offsets
-(`~/Dev/argent-remotion-flows/src/flow/timeline.ts`).
+The preview is one short clip per segment, joined in config order exactly as
+recorded. App Store previews may not be framed or captioned, so a segment's
+message has to come from what happens on screen.
 
 Apple requires a total length of 15 to 30 seconds. `gilded preview` refuses to
 render outside this window. Adjust the length with segment `holdSeconds` and
@@ -140,7 +142,7 @@ corrected YAML and review it. Prefer `text:` and
   runner pins its own status bar during a run. Stills are captured after the
   run, so they keep 9:41.
 
-## Choose a device frame
+## Choose a device frame for the screenshots
 
 Three bezel finishes ship in `assets/`. Pick one in the config:
 
@@ -148,7 +150,7 @@ Three bezel finishes ship in `assets/`. Pick one in the config:
 frame: { variant: "17-pro-blue" }   // or "17-pro-silver", "17-pro-orange"
 ```
 
-All bundled variants share the cutout geometry in `remotion/frame.ts`. Custom
+All bundled variants share the cutout geometry in `src/frame.ts`. Custom
 bezel art works too: `frame: { image: "path/to/bezel.png" }`, relative to the
 config file. Measure its geometry from its alpha channel.
 

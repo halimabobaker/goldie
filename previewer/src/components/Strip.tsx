@@ -1,13 +1,14 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
-import { layout } from "../../../remotion/frame";
+import { useState, type ReactNode } from "react";
+import { layout } from "../../../src/frame";
 import type { Design, DeviceCaptures, DeviceEntry, Theme } from "../manifest";
 
 /**
- * The five-up strip, composited in the browser: each tile is the raw device
- * capture inside the bezel art on the chosen background, laid out with the
- * exact geometry Remotion uses (remotion/frame.ts), so what you see is what
- * an export renders. Background and frame arrive as props from React state -
- * changing them repaints instantly, no CLI involved.
+ * The five-up strip, composited in the browser: each screenshot tile is the
+ * raw device capture inside the bezel art on the chosen background, laid out
+ * with the exact geometry the CLI renders with (src/frame.ts), so what you see
+ * is what an export renders. Background and frame arrive as props from React
+ * state - changing them repaints instantly, no CLI involved. The preview tile
+ * plays the raw clips as they are: Apple requires a plain screen recording.
  *
  * Every tile is a size-container: the geometry is computed in the device's
  * spec pixels and expressed in cqw/cqh, so the tile is the composition scaled
@@ -48,7 +49,7 @@ export function Strip({
       ? design.preview.segments.flatMap((seg) => {
           const clip = captures.clips!.find((c) => c.segmentId === seg.id);
           return clip
-            ? [{ url: clip.url, durationSeconds: clip.durationSeconds, caption: seg.caption[locale] ?? "" }]
+            ? [{ url: clip.url, durationSeconds: clip.durationSeconds }]
             : [];
         })
       : [];
@@ -71,14 +72,7 @@ export function Strip({
           bad={totalSeconds < 15 || totalSeconds > 30}
           badReason="Clips sum outside the 15-30s Apple allows for previews."
         >
-          <PreviewScene
-            spec={spec.preview}
-            theme={theme}
-            background={background}
-            frameUrl={frameUrl}
-            captionColor={headlineColor}
-            segments={segments}
-          />
+          <PreviewScene segments={segments} />
         </Tile>
       ) : null}
 
@@ -146,7 +140,7 @@ function Canvas({
   );
 }
 
-/** Browser twin of remotion/Screenshot.tsx; keep the numbers in step with it. */
+/** Browser twin of renderScreenshots in src/render.ts; keep the numbers in step with it. */
 function ScreenshotScene({
   spec,
   theme,
@@ -217,69 +211,25 @@ function ScreenshotScene({
 }
 
 /**
- * Browser twin of remotion/Preview.tsx: plays the raw clips back to back
- * inside the bezel with the caption fading in per segment. Always muted -
- * the configured audio bed only exists in the exported video.
+ * Plays the raw clips back to back, unframed, exactly as the exported video
+ * joins them. Always muted - the configured audio bed only exists in the
+ * exported video.
  */
-function PreviewScene({
-  spec,
-  theme,
-  background,
-  frameUrl,
-  captionColor,
-  segments,
-}: {
-  spec: { width: number; height: number };
-  theme: Theme;
-  background: string;
-  frameUrl: string;
-  captionColor: string;
-  segments: Array<{ url: string; durationSeconds: number; caption: string }>;
-}) {
-  const g = geometry(spec, theme);
+function PreviewScene({ segments }: { segments: Array<{ url: string; durationSeconds: number }> }) {
   const [index, setIndex] = useState(0);
   const segment = segments[index % segments.length]!;
-
-  const captionStyle: CSSProperties = {
-    color: captionColor,
-    fontSize: "6.2cqw",
-    fontWeight: 600,
-    lineHeight: 1.15,
-    textAlign: "center",
-    letterSpacing: "-0.12cqw",
-    animation: "caption-fade 300ms ease-out",
-  };
-
   return (
-    <Canvas background={background} fontFamily={theme.fontFamily}>
-      {/* Remounting on every advance restarts playback even with one clip. */}
-      <video
-        key={index}
-        src={`/${segment.url}`}
-        autoPlay
-        muted
-        playsInline
-        preload="auto"
-        onEnded={() => setIndex((i) => i + 1)}
-        style={{ position: "absolute", ...g.screen, objectFit: "cover" }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          inset: "0 0 auto",
-          height: g.copyHeight,
-          padding: "0 8cqw",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div key={index} style={captionStyle}>
-          {segment.caption}
-        </div>
-      </div>
-      <img src={`/${frameUrl}`} alt="" draggable={false} style={{ position: "absolute", ...g.frame }} />
-    </Canvas>
+    // Remounting on every advance restarts playback even with one clip.
+    <video
+      key={index}
+      src={`/${segment.url}`}
+      autoPlay
+      muted
+      playsInline
+      preload="auto"
+      onEnded={() => setIndex((i) => i + 1)}
+      className="absolute inset-0 h-full w-full object-cover"
+    />
   );
 }
 

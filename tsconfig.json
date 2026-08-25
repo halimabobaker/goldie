@@ -1,16 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": ["ES2022"],
     "module": "Preserve",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["bun", "react"]
+    "types": ["bun"]
   },
-  "include": ["src", "remotion", "gilded.config.ts"]
+  "include": ["src", "gilded.config.ts"]
 }
