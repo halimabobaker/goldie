@@ -6,7 +6,7 @@ import { Field, Select } from "./Sidebar";
  * The design controls: pick a background and a bezel variant. Both are plain
  * React state owned by the App - the strip composites them in the browser, so
  * every change repaints instantly. Nothing runs until Export; copy values you
- * like into gilded.config.ts to keep them.
+ * like into goldie.config.ts to keep them.
  */
 
 const PRESETS: Array<{ name: string; css: string }> = [

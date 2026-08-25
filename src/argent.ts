@@ -10,7 +10,7 @@ import { resolve } from "node:path";
 
 /** Prefer the pinned devDependency over whatever happens to be on PATH. */
 function resolveBin(): string {
-  if (process.env.GILDED_ARGENT_BIN) return process.env.GILDED_ARGENT_BIN;
+  if (process.env.GOLDIE_ARGENT_BIN) return process.env.GOLDIE_ARGENT_BIN;
   const local = resolve(import.meta.dirname, "..", "node_modules", ".bin", "argent");
   return existsSync(local) ? local : "argent";
 }

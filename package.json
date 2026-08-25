@@ -1,5 +1,5 @@
 {
-  "name": "gilded",
+  "name": "goldie",
   "version": "0.1.0",
   "devDependencies": {
     "@swmansion/argent": "^0.22.0",
@@ -7,12 +7,12 @@
     "typescript": "5.9.3"
   },
   "bin": {
-    "gilded": "./src/cli.ts"
+    "goldie": "./src/cli.ts"
   },
   "description": "App Store screenshot and preview automation driven by argent",
   "private": true,
   "scripts": {
-    "gilded": "bun src/cli.ts",
+    "goldie": "bun src/cli.ts",
     "doctor": "bun src/cli.ts doctor",
     "setup": "bun src/cli.ts setup",
     "capture": "bun src/cli.ts capture",

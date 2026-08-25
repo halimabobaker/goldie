@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { DeviceKey } from "./specs.ts";
 
-/** Bezel art bundled in gilded's own assets/, one PNG per variant. */
+/** Bezel art bundled in goldie's own assets/, one PNG per variant. */
 export const FRAME_VARIANTS = ["17-pro-silver", "17-pro-blue", "17-pro-orange"] as const;
 export type FrameVariant = (typeof FRAME_VARIANTS)[number];
 
@@ -13,7 +13,7 @@ export type Locale = string;
 export type ScreenshotScene = {
   kind: "screenshot";
   id: string;
-  /** Flow in the app's `.argent/flows`: a name ("home") or a path under it ("gilded/home.yaml"). Its final step captures the screenshot. */
+  /** Flow in the app's `.argent/flows`: a name ("home") or a path under it ("goldie/home.yaml"). Its final step captures the screenshot. */
   flow: string;
   /** Headline per locale. */
   headline: Record<Locale, string>;
@@ -76,12 +76,12 @@ export type StoreListing = {
   description: Record<Locale, string>;
 };
 
-export type GildedConfig = {
+export type GoldieConfig = {
   /** Absolute path to the app repo. Holds `.argent/flows`; also used for messages and for locating the build. */
   appRoot: string;
   /**
    * Where the scene flows live. Defaults to `.argent/flows` inside `appRoot`,
-   * so gilded and argent share one flow store: anything recorded with
+   * so goldie and argent share one flow store: anything recorded with
    * `argent flow record` is replayable here by name, and vice versa. An
    * absolute path or a path relative to the config file overrides it.
    */
@@ -105,7 +105,7 @@ export type GildedConfig = {
   scenes: Scene[];
 };
 
-export type LoadedConfig = GildedConfig & {
+export type LoadedConfig = GoldieConfig & {
   /** Directory the config file lives in; every relative path resolves against it. */
   root: string;
   /** Absolute directory the scene flows resolve against. */
@@ -114,20 +114,20 @@ export type LoadedConfig = GildedConfig & {
 };
 
 /**
- * Default config path: the GILDED_CONFIG env var when set, else
- * ./gilded.config.ts. The env var lets a config live in the app's own repo
- * while gilded and its previewer run from this checkout.
+ * Default config path: the GOLDIE_CONFIG env var when set, else
+ * ./goldie.config.ts. The env var lets a config live in the app's own repo
+ * while goldie and its previewer run from this checkout.
  */
 export function defaultConfigPath(): string {
-  return process.env.GILDED_CONFIG
-    ? resolve(process.env.GILDED_CONFIG)
-    : resolve(process.cwd(), "gilded.config.ts");
+  return process.env.GOLDIE_CONFIG
+    ? resolve(process.env.GOLDIE_CONFIG)
+    : resolve(process.cwd(), "goldie.config.ts");
 }
 
 export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConfig> {
   if (!existsSync(path)) throw new Error(`No config at ${path}`);
   const mod = await import(path);
-  const cfg: GildedConfig = mod.default ?? mod.config;
+  const cfg: GoldieConfig = mod.default ?? mod.config;
   if (!cfg) throw new Error(`${path} has no default export`);
   const root = dirname(path);
   const loaded: LoadedConfig = {
@@ -140,11 +140,11 @@ export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConf
   return loaded;
 }
 
-const GILDED_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const GOLDIE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Absolute path to a bundled bezel variant's PNG. */
 export function variantFramePath(variant: FrameVariant): string {
-  return resolve(GILDED_ROOT, "assets", `${variant}.png`);
+  return resolve(GOLDIE_ROOT, "assets", `${variant}.png`);
 }
 
 /** Absolute path to the bezel PNG the config selects. */

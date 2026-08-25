@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "gilded",
+      "name": "goldie",
       "dependencies": {
         "@napi-rs/canvas": "^1.0.8",
       },

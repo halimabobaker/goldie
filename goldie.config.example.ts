@@ -1,10 +1,10 @@
-import type { GildedConfig } from "./src/config.ts";
+import type { GoldieConfig } from "./src/config.ts";
 
 /**
- * Template. Copy to gilded.config.ts (here or in the app's own repo) and fill
+ * Template. Copy to goldie.config.ts (here or in the app's own repo) and fill
  * in the app's values. Every relative path resolves against the config file,
- * and out/ is created next to it. Point gilded at a config in another
- * directory with the GILDED_CONFIG env var.
+ * and out/ is created next to it. Point goldie at a config in another
+ * directory with the GOLDIE_CONFIG env var.
  *
  * Scene flows are argent flows: they live in the app repo's .argent/flows and
  * are named the way `argent flow run <name>` names them, so a flow recorded
@@ -13,7 +13,7 @@ import type { GildedConfig } from "./src/config.ts";
 
 const APP_ROOT = "/absolute/path/to/the/app/repo";
 
-const config: GildedConfig = {
+const config: GoldieConfig = {
   appRoot: APP_ROOT,
   // flowsDir: ".argent/flows" under appRoot by default.
   // Release simulator build. A Debug build needs Metro and paints LogBox
@@ -53,7 +53,7 @@ const config: GildedConfig = {
 
   scenes: [
     // One entry per screenshot, in store-page order. The flow navigates to the
-    // screen; gilded takes the screenshot after its last step. Flow values are
+    // screen; goldie takes the screenshot after its last step. Flow values are
     // argent flow names under .argent/flows (a path under it also works).
     {
       kind: "screenshot",

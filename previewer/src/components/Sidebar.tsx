@@ -33,7 +33,7 @@ export function Sidebar({
       <div className="flex items-center justify-between">
         <h1 className="text-[15px] font-semibold">
           <span aria-hidden="true">✨ </span>
-          <span className="gilded-wordmark">gilded</span>
+          <span className="goldie-wordmark">goldie</span>
         </h1>
         <button
           onClick={() => onDark(!dark)}

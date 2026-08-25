@@ -1,4 +1,4 @@
-/** Mirrors the StoreManifest that `gilded manifest` writes to out/store.json. */
+/** Mirrors the StoreManifest that `goldie manifest` writes to out/store.json. */
 
 export type Theme = {
   background: string;
@@ -41,7 +41,7 @@ export type Design = {
     sceneId: string;
     segments: Array<{ id: string }>;
   } | null;
-  /** Raw capture urls per device key; a device is absent until `gilded capture` ran. */
+  /** Raw capture urls per device key; a device is absent until `goldie capture` ran. */
   captures: Record<string, DeviceCaptures>;
 };
 

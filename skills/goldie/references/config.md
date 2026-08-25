@@ -1,7 +1,7 @@
-# gilded.config.ts
+# goldie.config.ts
 
-One file holds everything app-specific. It exports a `GildedConfig` (type from
-`$GILDED/src/config.ts`). Every relative path in it resolves against the config
+One file holds everything app-specific. It exports a `GoldieConfig` (type from
+`$GOLDIE/src/config.ts`). Every relative path in it resolves against the config
 file itself, and `out/` is created next to it. Scene flows are the exception:
 they are argent flow names resolved against `flowsDir`, which defaults to
 `.argent/flows` inside `appRoot`.
@@ -9,17 +9,17 @@ they are argent flow names resolved against `flowsDir`, which defaults to
 ## Annotated example
 
 ```ts
-import type { GildedConfig } from "/Users/<you>/Dev/gilded/src/config.ts";
+import type { GoldieConfig } from "/Users/<you>/Dev/goldie/src/config.ts";
 
 const APP_ROOT = "/absolute/path/to/the/app/repo";
 
-const config: GildedConfig = {
+const config: GoldieConfig = {
   appRoot: APP_ROOT,
   // The Release simulator build found in Step 1. Absolute path.
   appPath: `${process.env.HOME}/Library/Developer/Xcode/DerivedData/<App>-<hash>/Build/Products/Release-iphonesimulator/<App>.app`,
   bundleId: "com.example.app",
 
-  devices: ["iphone-6.9"],       // keys from $GILDED/src/specs.ts
+  devices: ["iphone-6.9"],       // keys from $GOLDIE/src/specs.ts
   locales: ["en-US"],
   appearance: "light",           // simulator appearance for every capture
 
@@ -83,7 +83,7 @@ const config: GildedConfig = {
 export default config;
 ```
 
-Import the type with an absolute path to the gilded checkout, since the config
+Import the type with an absolute path to the goldie checkout, since the config
 lives in the app repo.
 
 ## Writing the copy
@@ -104,5 +104,5 @@ lives in the app repo.
 | 6.9" screenshots | 1320x2868 PNG, no alpha | `out/screenshots/6.9/<locale>/` |
 | 6.9" preview | 886x1920 H.264 30fps AAC, 15 to 30 s | `out/previews/6.9/<locale>/` |
 
-`gilded verify` checks the finished files against these with `sips` and
+`goldie verify` checks the finished files against these with `sips` and
 `ffprobe` and fails on any mismatch.

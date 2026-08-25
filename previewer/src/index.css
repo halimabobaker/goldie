@@ -20,7 +20,7 @@ body,
 /* Wordmark: golden text with a shine that sweeps across every so often.
    The sweep itself takes ~1s of a 9s cycle; the rest of the time the
    highlight sits parked off to the left so the text reads as plain gold. */
-.gilded-wordmark {
+.goldie-wordmark {
   background-image: linear-gradient(
     105deg,
     #b8860b 0%,
@@ -34,10 +34,10 @@ body,
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: gilded-shine 9s ease-in-out infinite;
+  animation: goldie-shine 9s ease-in-out infinite;
 }
 
-.dark .gilded-wordmark {
+.dark .goldie-wordmark {
   background-image: linear-gradient(
     105deg,
     #d4a017 0%,
@@ -48,7 +48,7 @@ body,
   );
 }
 
-@keyframes gilded-shine {
+@keyframes goldie-shine {
   0% {
     background-position: 100% 0;
   }

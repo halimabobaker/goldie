@@ -5,8 +5,8 @@ previewer/node_modules
 previewer/dist
 *.tsbuildinfo
 
-# App-specific config; copy gilded.config.example.ts
-gilded.config.ts
+# App-specific config; copy goldie.config.example.ts
+goldie.config.ts
 
 # Generated assets: screenshots, previews, staged frames, export bundles
 out/

@@ -37,7 +37,7 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     name: "argent",
     ok: await argent.available(),
     detail: "device driver",
-    fix: "npm i -g @swmansion/argent   (or set GILDED_ARGENT_BIN)",
+    fix: "npm i -g @swmansion/argent   (or set GOLDIE_ARGENT_BIN)",
   });
 
   // The watermark flag is ON by default and would brand every preview.
@@ -94,14 +94,14 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     name: "flows dir",
     ok: existsSync(cfg.flowsDir),
     detail: cfg.flowsDir,
-    fix: `mkdir -p ${cfg.flowsDir}   (or set flowsDir in gilded.config.ts)`,
+    fix: `mkdir -p ${cfg.flowsDir}   (or set flowsDir in goldie.config.ts)`,
   });
 
   for (const scene of cfg.scenes) {
     const flows = scene.kind === "preview" ? scene.segments.map((s) => s.flow) : [scene.flow];
     for (const f of flows) {
       const path = flowPath(cfg, f);
-      checks.push({ name: `flow ${f}`, ok: existsSync(path), detail: path, fix: "Record or author it under the flows dir, or fix the name in gilded.config.ts" });
+      checks.push({ name: `flow ${f}`, ok: existsSync(path), detail: path, fix: "Record or author it under the flows dir, or fix the name in goldie.config.ts" });
     }
   }
 

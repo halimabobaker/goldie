@@ -1,11 +1,11 @@
-# Authoring argent flows for gilded
+# Authoring argent flows for goldie
 
 Flows are argent YAML in the app repo's `.argent/flows`, replayed with
-`argent flow run` on a booted simulator. gilded refers to them by name, so
+`argent flow run` on a booted simulator. goldie refers to them by name, so
 `flow: "store-01-issues"` runs `.argent/flows/store-01-issues.yaml` and you can
 run that same flow by hand from the app repo while authoring it.
 
-Flows run with no LLM, so every step must be deterministic. gilded handles the
+Flows run with no LLM, so every step must be deterministic. goldie handles the
 surrounding machinery for you: before any flow it pins the status bar and
 reinstalls the app with cleared data, so every run starts from the same empty
 state. A simulator that is already booted keeps running; it is only shut down
@@ -74,7 +74,7 @@ steps:
 
 ## Screenshot flows
 
-A screenshot flow only navigates: launch, reach the screen, settle. gilded
+A screenshot flow only navigates: launch, reach the screen, settle. goldie
 takes the full-resolution screenshot itself after the last step, so the flow
 contains no screenshot call. End every screenshot flow with `await idle`.
 
@@ -87,7 +87,7 @@ steps:
 
 ## Preview segment flows
 
-Segments record one continuous session: gilded restarts the app once before
+Segments record one continuous session: goldie restarts the app once before
 the first segment, then replays the segments in order, wrapping each in its
 own recording. So the first segment starts from a fresh launch already settled
 on the home screen, and every later segment continues exactly where the
@@ -99,7 +99,7 @@ Pacing rules:
 - A segment's clip lasts as long as the flow takes, plus its `holdSeconds`.
   Use `wait:` steps to let a screen read before and after an action; 800 to
   1500 ms reads naturally.
-- The whole video must total 15 to 30 seconds. `gilded preview` refuses to
+- The whole video must total 15 to 30 seconds. `goldie preview` refuses to
   render outside that window. With 3 or 4 segments, aim for 4 to 7 seconds
   each.
 - Recordings run in real time with touch indicators off; a swipe with
@@ -107,7 +107,7 @@ Pacing rules:
 
 ## Repairing a broken flow
 
-When capture fails, gilded prints the failed step and argent's reason, for
+When capture fails, goldie prints the failed step and argent's reason, for
 example `no element matched selector text="All issues"`. Repair loop:
 
 1. Get the app to the state the failed step assumed (replay the earlier steps

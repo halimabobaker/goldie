@@ -1,45 +1,45 @@
-# gilded
+# goldie
 
-gilded makes App Store screenshots and app preview videos for an iOS app.
+goldie makes App Store screenshots and app preview videos for an iOS app.
 [argent](https://github.com/software-mansion/argent) replays YAML flows on a
 simulator and captures raw images and recordings.
-gilded composites the screenshots with a device frame, a background, and
+goldie composites the screenshots with a device frame, a background, and
 headline copy, and joins the recordings into a plain preview video, since
 Apple requires app previews to show the device screen and nothing else. The
 output matches Apple's upload rules.
 
 ```
-gilded doctor     Check the tools, simulators, flags and flows
-gilded capture    Replay each flow and save the raw captures
-gilded frame      Make framed, captioned PNGs from the raw screenshots
-gilded preview    Make the app preview video from the raw clips
-gilded verify     Check the finished assets against Apple's rules
-gilded manifest   Write out/web/store.json for the previewer
-gilded all        capture -> frame -> preview -> manifest -> verify
+goldie doctor     Check the tools, simulators, flags and flows
+goldie capture    Replay each flow and save the raw captures
+goldie frame      Make framed, captioned PNGs from the raw screenshots
+goldie preview    Make the app preview video from the raw clips
+goldie verify     Check the finished assets against Apple's rules
+goldie manifest   Write out/web/store.json for the previewer
+goldie all        capture -> frame -> preview -> manifest -> verify
 ```
 
-All app-specific data is in `gilded.config.ts`, which is untracked; copy
-`gilded.config.example.ts` to start. Set `GILDED_CONFIG` to use a config in
+All app-specific data is in `goldie.config.ts`, which is untracked; copy
+`goldie.config.example.ts` to start. Set `GOLDIE_CONFIG` to use a config in
 another directory, for example in the app's own repo; `out/` is created next to
 the config file.
 
 The scenes point at argent flows in the app repo's `.argent/flows`, by the same
-name `argent flow run <name>` takes. gilded and argent share one flow store, so
+name `argent flow run <name>` takes. goldie and argent share one flow store, so
 a flow recorded with `argent` replays here unchanged and a marketing flow stays
 runnable on its own. Set `flowsDir` in the config to keep them somewhere else.
 
 ## Install the skill
 
-The repo has a Claude skill in `skills/gilded/`. The skill explores the app on
+The repo has a Claude skill in `skills/goldie/`. The skill explores the app on
 a simulator, writes the flows into `.argent/flows` and the config, runs the
 pipeline, and opens the
 previewer. Install it with the [skills.sh](https://skills.sh) CLI:
 
 ```
-npx skills add kacperkapusciak/gilded
+npx skills add kacperkapusciak/goldie
 ```
 
-Then ask Claude from the app repo: "create App Store screenshots using gilded".
+Then ask Claude from the app repo: "create App Store screenshots using goldie".
 
 ## Output
 
@@ -48,7 +48,7 @@ Then ask Claude from the app repo: "create App Store screenshots using gilded".
 | 6.9" screenshots | 1320 x 2868, no alpha | `out/screenshots/6.9/<locale>/` |
 | 6.9" app preview | 886 x 1920, H.264, 30 fps, AAC | `out/previews/6.9/<locale>/` |
 
-`gilded verify` reads these values from the finished files with `sips` and
+`goldie verify` reads these values from the finished files with `sips` and
 `ffprobe`. If a file does not match Apple's rules, the command fails.
 
 ## Preview the assets
@@ -67,7 +67,7 @@ presets, a gradient picker, a color picker, a CSS field, and a bezel dropdown.
 When you change a value, the server runs the render pipeline again on the
 existing raw captures and streams the log. The video is behind an "Include
 video" toggle because it takes some minutes. The CLI has the same overrides:
-`--background` and `--frame`. They apply to one run only. `gilded.config.ts`
+`--background` and `--frame`. They apply to one run only. `goldie.config.ts`
 stays the source of truth.
 
 The app reads `out/web/`: the manifest and symlinks to the finished
@@ -96,14 +96,14 @@ The preview is one short clip per segment, joined in config order exactly as
 recorded. App Store previews may not be framed or captioned, so a segment's
 message has to come from what happens on screen.
 
-Apple requires a total length of 15 to 30 seconds. `gilded preview` refuses to
+Apple requires a total length of 15 to 30 seconds. `goldie preview` refuses to
 render outside this window. Adjust the length with segment `holdSeconds` and
 `wait:` steps in the flows.
 
 ## When a flow breaks
 
 Flows replay with no LLM. A flow fails when the app changes, for example a
-moved button or a new label. gilded then prints the failed step, the reason
+moved button or a new label. goldie then prints the failed step, the reason
 from argent, and the commands to fix it:
 
 ```

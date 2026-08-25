@@ -7,41 +7,41 @@ import { rm } from "node:fs/promises";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import type { ServerResponse } from "node:http";
 
-const GILDED_ROOT = resolve(import.meta.dirname, "..");
-// GILDED_CONFIG points at a config outside this repo; out/ lives next to it.
-const OUT_DIR = process.env.GILDED_CONFIG
-  ? join(resolve(process.env.GILDED_CONFIG), "..", "out")
-  : join(GILDED_ROOT, "out");
+const GOLDIE_ROOT = resolve(import.meta.dirname, "..");
+// GOLDIE_CONFIG points at a config outside this repo; out/ lives next to it.
+const OUT_DIR = process.env.GOLDIE_CONFIG
+  ? join(resolve(process.env.GOLDIE_CONFIG), "..", "out")
+  : join(GOLDIE_ROOT, "out");
 const EXPORT_ZIP = join(OUT_DIR, "export.zip");
 
 /**
  * `out/web` is the static root: the manifest, the bezel art and
  * symlinks to the raw captures and finished assets, all served from `/`.
- * Nothing is copied into the previewer, so a re-run of `gilded capture` shows
- * up on reload. Run `gilded manifest` first; the directory does not exist
- * before that. `fs.allow` covers the gilded root because the previewer imports
+ * Nothing is copied into the previewer, so a re-run of `goldie capture` shows
+ * up on reload. Run `goldie manifest` first; the directory does not exist
+ * before that. `fs.allow` covers the goldie root because the previewer imports
  * src/frame.ts for the shared bezel geometry.
  */
 export default defineConfig({
-  plugins: [react(), tailwindcss(), gildedApi()],
+  plugins: [react(), tailwindcss(), goldieApi()],
   publicDir: join(OUT_DIR, "web"),
-  server: { port: 4321, open: true, fs: { allow: [GILDED_ROOT, OUT_DIR] } },
+  server: { port: 4321, open: true, fs: { allow: [GOLDIE_ROOT, OUT_DIR] } },
 });
 
 /**
  * POST /api/export - renders the final assets from the raw captures with the
- * chosen background and frame (gilded frame + preview + manifest), zips
+ * chosen background and frame (goldie frame + preview + manifest), zips
  * out/screenshots and out/previews, and streams the CLI log as plain text.
  * Body: { background?: string, frame?: string }.
  * The response ends with "[done]" on success or "[failed]" otherwise; on
  * "[done]" the UI downloads GET /api/export/download. Dev server only; a
  * built dist stays static.
  */
-function gildedApi(): Plugin {
+function goldieApi(): Plugin {
   let busy = false;
 
   return {
-    name: "gilded-api",
+    name: "goldie-api",
     configureServer(server: ViteDevServer) {
       server.middlewares.use("/api/export", (req, res) => {
         if (req.method === "GET" && req.url === "/download") {
@@ -95,8 +95,8 @@ function gildedApi(): Plugin {
 
           try {
             for (const command of ["frame", "preview", "manifest"]) {
-              res.write(`$ gilded ${command}\n`);
-              await run("bun", ["src/cli.ts", command, ...flags], GILDED_ROOT, res);
+              res.write(`$ goldie ${command}\n`);
+              await run("bun", ["src/cli.ts", command, ...flags], GOLDIE_ROOT, res);
             }
             res.write("$ zip screenshots + previews\n");
             await rm(EXPORT_ZIP, { force: true });

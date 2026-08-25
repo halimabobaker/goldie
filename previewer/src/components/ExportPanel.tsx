@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * The one place the gilded CLI runs: Export re-renders the screenshots and
+ * The one place the goldie CLI runs: Export re-renders the screenshots and
  * the preview video from the raw captures with the current design, zips them,
  * and hands the browser the zip. Streams the CLI log while it runs (the video
  * render takes a while). Dev server only - a static build has no /api/export.

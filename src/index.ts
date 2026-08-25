@@ -1,5 +1,5 @@
 export { loadConfig } from "./config.ts";
-export type { GildedConfig, Scene, ScreenshotScene, PreviewScene, Theme } from "./config.ts";
+export type { GoldieConfig, Scene, ScreenshotScene, PreviewScene, Theme } from "./config.ts";
 export { DEVICES, PREVIEW } from "./specs.ts";
 export type { DeviceKey, DeviceSpec } from "./specs.ts";
 export { capture } from "./capture.ts";
