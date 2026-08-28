@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Design, LayoutEntry } from "../manifest";
+import { FontPicker } from "./FontPicker";
 import { Field, Select } from "./Sidebar";
 import { TemplatePicker } from "./TemplatePicker";
 
@@ -198,7 +199,7 @@ export function DesignPanel({
       </Field>
 
       <Field label="Font">
-        <Select value={fontFamily} onChange={onFontFamily} options={fontOptions} />
+        <FontPicker value={fontFamily} onChange={onFontFamily} options={fontOptions} />
       </Field>
     </div>
   );
