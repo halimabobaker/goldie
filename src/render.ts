@@ -74,8 +74,12 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
 
       const canvas = createCanvas(c.width, c.height);
       const ctx = canvas.getContext("2d");
-      ctx.fillStyle = paint(ctx, scene.background ?? cfg.theme.background, c.width, c.height);
-      ctx.fillRect(0, 0, c.width, c.height);
+      const background = scene.background ?? cfg.theme.background;
+      const transparent = isTransparent(background);
+      if (!transparent) {
+        ctx.fillStyle = paint(ctx, background, c.width, c.height);
+        ctx.fillRect(0, 0, c.width, c.height);
+      }
 
       if (c.copy) {
         drawCopy(ctx, c.copy, tile, cfg.theme, {
@@ -106,7 +110,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
         slice.getContext("2d").drawImage(canvas, -i * tile.width, 0);
         const suffix = layout.span > 1 ? `-${i + 1}` : "";
         const name = `${String(first + i + 1).padStart(2, "0")}-${scene.id}${suffix}.png`;
-        out.push(await writePng(slice, outDir, name));
+        out.push(await writePng(slice, outDir, name, transparent));
       }
       return out;
     }),
@@ -117,12 +121,22 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
 /**
  * Writes the canvas as an opaque PNG. App Store rejects screenshots carrying
  * an alpha channel, and the canvas always encodes RGBA, so ffmpeg strips it
- * on the way out.
+ * on the way out. A transparent background keeps the alpha channel: those
+ * files are for compositing elsewhere, not for upload.
  */
-async function writePng(canvas: Canvas, outDir: string, name: string): Promise<string> {
+async function writePng(
+  canvas: Canvas,
+  outDir: string,
+  name: string,
+  keepAlpha = false,
+): Promise<string> {
+  const final = join(outDir, name);
+  if (keepAlpha) {
+    await writeFile(final, await canvas.encode("png"));
+    return final;
+  }
   const raw = join(outDir, `.${name}.rgba.png`);
   await writeFile(raw, await canvas.encode("png"));
-  const final = join(outDir, name);
   await execOrThrow("ffmpeg", [
     "-y",
     "-loglevel",
@@ -335,6 +349,11 @@ function drawLines(
   return y;
 }
 
+/** Whether a CSS background asks for no fill at all. */
+function isTransparent(css: string): boolean {
+  return css.trim().toLowerCase() === "transparent";
+}
+
 /**
  * A canvas fill for a CSS background: a plain color, or a `linear-gradient()`
  * with an optional angle / `to <side>` and color stops with optional
@@ -530,11 +549,13 @@ export async function verify(
     const width = Number(r.stdout.match(/pixelWidth:\s*(\d+)/)?.[1]);
     const height = Number(r.stdout.match(/pixelHeight:\s*(\d+)/)?.[1]);
     const alpha = /hasAlpha:\s*yes/.test(r.stdout);
-    const good = width === spec.screenshot.width && height === spec.screenshot.height && !alpha;
+    // A transparent theme background keeps its alpha on purpose.
+    const alphaOk = !alpha || isTransparent(cfg.theme.background);
+    const good = width === spec.screenshot.width && height === spec.screenshot.height && alphaOk;
     ok &&= good;
     console.log(
       `  ${good ? "ok  " : "FAIL"} ${basename(file)}  ${width}x${height}` +
-        `${alpha ? "  alpha channel present" : ""}` +
+        `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
         `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
     );
   }

@@ -88,7 +88,8 @@ five-tile strip from the store page: the video first, then the screenshots.
 Each tile is the exact file for upload. The sidebar lists each file with its
 size and weight. A row turns red when the file breaks Apple's rules.
 
-The Design panel has 16 background presets, a gradient picker, a template
+The Design panel has 25 background presets (including a transparent one that
+exports with an alpha channel, for compositing elsewhere), a gradient picker, a template
 dropdown (or a single layout), a bezel or screen-only switch, and a font
 dropdown. Every change is
 composited in the browser at once. Clicking a tile opens it full size, where

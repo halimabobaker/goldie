@@ -16,6 +16,12 @@ import { TemplatePicker } from "./TemplatePicker";
  * every change repaints instantly. Nothing runs until Export.
  */
 
+/** The background value that exports with an alpha channel instead of a fill. */
+export const TRANSPARENT = "transparent";
+
+/** A checkerboard standing in for a transparent background in the UI. */
+export const CHECKERBOARD = "repeating-conic-gradient(#c8c8c8 0 25%, #f4f4f4 0 50%) 0 0/12px 12px";
+
 const PRESETS: Array<{ name: string; css: string }> = [
   { name: "Arctic", css: "linear-gradient(160deg, #E8F1FF 0%, #F7FAFF 55%, #FFFFFF 100%)" },
   { name: "Peach", css: "linear-gradient(160deg, #FFE8D6 0%, #FFF7F0 55%, #FFFFFF 100%)" },
@@ -33,6 +39,15 @@ const PRESETS: Array<{ name: string; css: string }> = [
   { name: "Berry", css: "linear-gradient(160deg, #EC4899 0%, #831843 100%)" },
   { name: "Aurora", css: "linear-gradient(160deg, #0D9488 0%, #1E3A8A 100%)" },
   { name: "Graphite", css: "linear-gradient(160deg, #3F3F46 0%, #18181B 100%)" },
+  { name: "Sky", css: "linear-gradient(160deg, #BAE6FD 0%, #E0F2FE 55%, #FFFFFF 100%)" },
+  { name: "Rose", css: "linear-gradient(160deg, #FDA4AF 0%, #FFE4E6 60%, #FFFFFF 100%)" },
+  { name: "Sunset", css: "linear-gradient(160deg, #F59E0B 0%, #EF4444 55%, #7C3AED 100%)" },
+  { name: "Coral", css: "linear-gradient(160deg, #FB7185 0%, #F97316 100%)" },
+  { name: "Teal", css: "linear-gradient(160deg, #2DD4BF 0%, #0F766E 100%)" },
+  { name: "Cobalt", css: "linear-gradient(160deg, #3B82F6 0%, #1E1B4B 100%)" },
+  { name: "White", css: "#FFFFFF" },
+  { name: "Black", css: "#000000" },
+  { name: "Transparent", css: TRANSPARENT },
 ];
 
 /** Display names and bezel tints for the bundled variants; unknown slugs fall back to the slug. */
@@ -177,7 +192,7 @@ function Swatch({
       aria-label={name}
       aria-pressed={selected}
       onClick={onClick}
-      style={{ background: css }}
+      style={{ background: css === TRANSPARENT ? CHECKERBOARD : css }}
       className={`${swatchClass} ${selected ? "ring-2 ring-primary ring-offset-2 ring-offset-sidebar" : "focus-visible:ring-2 focus-visible:ring-ring"}`}
     >
       {selected ? <SelectedMark dark={isLight(css)} /> : null}

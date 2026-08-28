@@ -29,6 +29,7 @@ const config: GoldieConfig = {
 
   theme: {
     // Any CSS background. Soft brand-tinted gradients read best at store size.
+    // "transparent" exports PNGs with alpha (for compositing; not uploadable as-is).
     background: "linear-gradient(160deg, #E8F1FF 0%, #F7FAFF 55%, #FFFFFF 100%)",
     headlineColor: "#0E1B2A",    // must contrast with the background;
     subheadColor: "#5A6A7D",     // light text on a dark background and vice versa

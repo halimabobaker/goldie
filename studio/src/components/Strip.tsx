@@ -23,7 +23,7 @@ import type {
   SceneCopy,
   Theme,
 } from "../manifest";
-import { layoutOptions } from "./DesignPanel";
+import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
 import { Select } from "./Sidebar";
 import { Button } from "./ui/button";
 
@@ -634,7 +634,7 @@ function ScreenshotScene({
           left: `${-slice * 100}%`,
           width: `${spec.span * 100}%`,
           height: "100%",
-          background,
+          background: background === TRANSPARENT ? CHECKERBOARD : background,
         }}
       >
         {copy ? (

@@ -35,7 +35,7 @@ Options
   --config <path>   Config file (default ./goldie.config.ts)
   --device <key>    Only this device key (default: every device in the config)
   --locale <code>   Only this locale (default: every locale in the config)
-  --background <css>  Override theme.background for this run (also clears per-scene backgrounds)
+  --background <css>  Override theme.background for this run (also clears per-scene backgrounds); "transparent" keeps alpha
   --frame <variant>   Override the screenshot bezel variant for this run (17-pro-silver | 17-pro-blue | 17-pro-orange)
   --font <key>        Override theme.fontFamily for this run (system | ${FONT_KEYS.join(" | ")})
   --template <key>    Override theme.template for this run (${TEMPLATE_KEYS.join(" | ")}; "none" for one layout)
