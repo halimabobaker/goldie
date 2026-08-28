@@ -102,6 +102,13 @@ export type SavedDesign = {
   background?: string;
   frame?: string;
   fontFamily?: string;
+  /** Copy edited in the lightbox, per screenshot scene id, then locale. */
+  copy?: Record<string, SceneCopy>;
+};
+
+export type SceneCopy = {
+  headline?: Record<string, string>;
+  subhead?: Record<string, string>;
 };
 
 export async function loadDesign(): Promise<SavedDesign> {

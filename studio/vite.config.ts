@@ -23,9 +23,9 @@ const EXPORT_ZIP = join(OUT_DIR, "export.zip");
 /**
  * `out/web` is the static root: the manifest, the bezel art and
  * symlinks to the raw captures and finished assets, all served from `/`.
- * Nothing is copied into the previewer, so a re-run of `goldie capture` shows
+ * Nothing is copied into the studio, so a re-run of `goldie capture` shows
  * up on reload. Run `goldie manifest` first; the directory does not exist
- * before that. `fs.allow` covers the goldie root because the previewer imports
+ * before that. `fs.allow` covers the goldie root because the studio imports
  * src/frame.ts for the shared bezel geometry.
  */
 export default defineConfig({
@@ -45,7 +45,7 @@ export default defineConfig({
  * built dist stays static.
  *
  * GET/PUT /api/design - the design choices saved next to the config as
- * goldie.design.json ({ background?, frame?, fontFamily? }). The CLI's
+ * goldie.design.json ({ background?, frame?, fontFamily?, copy? }). The CLI's
  * loadConfig() applies the file, so a saved choice also shapes plain
  * `goldie frame` runs. The UI debounces its PUTs; the server writes the file
  * atomically so a half-written JSON never reaches the CLI.

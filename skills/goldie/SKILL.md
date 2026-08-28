@@ -4,7 +4,7 @@ description: >-
   Create App Store screenshots and app preview videos for an iOS app with the
   goldie toolkit: explore the app on a simulator, author argent flows for its
   key user flows, render framed screenshots and a plain preview video, and open a local
-  previewer showing the finished store page. Use this whenever the user asks
+  studio showing the finished store page. Use this whenever the user asks
   for App Store screenshots, store assets, marketing screenshots, an app
   preview video, or mentions goldie, even if they only say something like
   "make screenshots for the store" or "I need App Store assets for this app".
@@ -19,13 +19,13 @@ goldie replays argent YAML flows on an iOS simulator, captures raw screenshots
 and recordings, and turns them into upload-ready assets: screenshots get a
 device bezel, a background, and marketing copy; the preview video is the raw
 recordings joined as-is, since Apple requires app previews to be a plain
-screen recording with no framing or captions. A React previewer shows the
+screen recording with no framing or captions. A React studio shows the
 result as the real store page. Your job is everything goldie cannot do alone:
 pick the screens worth marketing, author the flows that reach them, write the
 copy, and drive the pipeline.
 
 The end state: 4 or 5 framed screenshots and the raw clips for a preview video,
-visible in the previewer at http://localhost:4321, with the video rendering in
+visible in the studio at http://localhost:4321, with the video rendering in
 the background.
 
 ## Before anything: check for an existing goldie setup
@@ -42,7 +42,7 @@ Read `goldie/goldie.config.ts` in full and the flows it names. Together they
 are the source of truth for every visible choice: which screens, in what
 order, the headlines and subheads, the background and copy colors, the bezel,
 the store listing, and the preview story. Nothing lives only in your head or
-in the previewer, so a user who says "make it darker" or "swap the search
+in the studio, so a user who says "make it darker" or "swap the search
 screenshot for settings" is asking for an edit to those files.
 
 ## Step 0: Locate or install goldie
@@ -159,13 +159,13 @@ Prefer `text:` and `id:` selectors; when only a coordinate works, add an
 `echo:` step above it explaining what it points at, so the next repair knows
 what to re-resolve.
 
-## Step 5: Open the previewer, render the video lazily
+## Step 5: Open the studio, render the video lazily
 
-Start the previewer in the background from the goldie checkout. It needs
+Start the studio in the background from the goldie checkout. It needs
 `GOLDIE_CONFIG` too, so it serves the app repo's `out/`:
 
 ```bash
-cd $GOLDIE && GOLDIE_CONFIG=... bun run previewer   # background task; serves http://localhost:4321
+cd $GOLDIE && GOLDIE_CONFIG=... bun run studio   # background task; serves http://localhost:4321
 ```
 
 Tell the user it is up at http://localhost:4321. Then, also in the background,
@@ -181,7 +181,7 @@ changed.
 
 Finish with `bun $GOLDIE/src/cli.ts verify` and report the result: which
 assets exist, where they are, and whether they pass Apple's rules. The
-previewer's sidebar shows the same checks; a red row is a rule violation. The
+studio's sidebar shows the same checks; a red row is a rule violation. The
 Generate panel lets the user restyle backgrounds and bezels without you, and
 Export downloads an upload-ready zip.
 
@@ -206,14 +206,14 @@ the next prompt can build on it.
 `capture` replays every flow; to re-capture only what changed, keep the
 other scenes as they are and accept the extra minute, or delete only the
 stale files under `out/raw/` before running it. `frame` and `manifest` take
-seconds, so run them freely. The previewer at http://localhost:4321 picks up
+seconds, so run them freely. The studio at http://localhost:4321 picks up
 changes on reload; start it again with `GOLDIE_CONFIG` if it is not running.
 
-The previewer's Generate panel and the CLI's `--background` / `--frame` /
+The studio's Generate panel and the CLI's `--background` / `--frame` /
 `--font` flags are one-run overrides that never touch the config. If the user
 tried a preset there and wants to keep it, copy the CSS, variant or font stack
 into `theme.background`, `frame.variant` or `theme.fontFamily` so the next
 re-prompt starts from what they see. The
 current on-disk values are also in `goldie/out/web/store.json` under `design`,
-which is the fastest way to confirm what the previewer is showing right now.
+which is the fastest way to confirm what the studio is showing right now.
 

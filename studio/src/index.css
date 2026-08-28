@@ -212,3 +212,23 @@ body,
   animation-duration: 150ms;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
+
+/* Copy editable in place inside the lightbox. */
+.editable-copy {
+  cursor: text;
+  border-radius: 0.6cqw;
+  outline: 0.2cqw dashed transparent;
+  outline-offset: 0.6cqw;
+  transition: outline-color 120ms;
+  white-space: pre-wrap;
+}
+.editable-copy:hover {
+  outline-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+.editable-copy:focus {
+  outline-color: color-mix(in srgb, currentColor 70%, transparent);
+}
+.editable-copy:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.4;
+}

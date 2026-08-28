@@ -39,7 +39,7 @@ const FRAME_LABELS: Record<string, string> = {
   "17-pro-orange": "iPhone 17 Pro Cosmic Orange",
 };
 
-/** The previewer's "System" font choice; mirrors SYSTEM_FONT in src/fonts.ts. */
+/** The studio's "System" font choice; mirrors SYSTEM_FONT in src/fonts.ts. */
 const SYSTEM_FONT = '-apple-system, "SF Pro Display", system-ui, sans-serif';
 
 export function DesignPanel({

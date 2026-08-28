@@ -20,8 +20,8 @@
     "frame": "bun src/cli.ts frame",
     "preview": "bun src/cli.ts preview",
     "all": "bun src/cli.ts all",
-    "previewer": "bun src/cli.ts manifest && cd previewer && bun install --silent && bun run dev",
-    "previewer:build": "bun src/cli.ts manifest && cd previewer && bun install --silent && bun run build",
+    "studio": "bun src/cli.ts manifest && cd studio && bun install --silent && bun run dev",
+    "studio:build": "bun src/cli.ts manifest && cd studio && bun install --silent && bun run build",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write ."

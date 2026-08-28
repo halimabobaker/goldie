@@ -40,13 +40,13 @@ const config: GoldieConfig = {
     deviceWidthRatio: 0.84,
   },
 
-  // Renders the realistic store page around the assets in the previewer.
+  // Renders the realistic store page around the assets in the studio.
   store: {
     name: "AppName",
     subtitle: { "en-US": "Under 30 characters" },
     developer: "Company Name",
     category: "Productivity",
-    rating: 4.8, // cosmetic, previewer only
+    rating: 4.8, // cosmetic, studio only
     ratingCount: "1.2K Ratings",
     ageRating: "4+",
     price: "Free",

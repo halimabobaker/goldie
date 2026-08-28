@@ -58,7 +58,7 @@ export type Theme = {
 };
 
 /**
- * How the app presents itself on the App Store. Used by the previewer to
+ * How the app presents itself on the App Store. Used by the studio to
  * render a realistic product page around the generated assets - it is the
  * surrounding chrome that tells you whether a headline still reads at
  * gallery size.
@@ -116,7 +116,7 @@ export type LoadedConfig = GoldieConfig & {
 /**
  * Default config path: the GOLDIE_CONFIG env var when set, else
  * ./goldie.config.ts. The env var lets a config live in the app's own repo
- * while goldie and its previewer run from this checkout.
+ * while goldie and its studio run from this checkout.
  */
 export function defaultConfigPath(): string {
   return process.env.GOLDIE_CONFIG
@@ -142,15 +142,22 @@ export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConf
 }
 
 /**
- * Design choices made in the previewer, kept next to the config as
+ * Design choices made in the studio, kept next to the config as
  * goldie.design.json so they survive a reload and apply to CLI runs too.
  * Every field is optional; a missing one leaves the config's value alone.
  */
 export type DesignOverrides = {
   background?: string;
   frame?: FrameVariant;
-  /** A full CSS font stack, as the previewer's font picker produces. */
+  /** A full CSS font stack, as the studio's font picker produces. */
   fontFamily?: string;
+  /** Copy edited in the studio, per screenshot scene id, then locale. */
+  copy?: Record<string, SceneCopy>;
+};
+
+export type SceneCopy = {
+  headline?: Record<string, string>;
+  subhead?: Record<string, string>;
 };
 
 /** Path of the design sidecar for a config file. */
@@ -186,6 +193,14 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
     framePath(cfg); // throws on an unknown variant
   }
   if (design.fontFamily) cfg.theme.fontFamily = design.fontFamily;
+  if (design.copy) {
+    for (const scene of cfg.scenes) {
+      const copy = design.copy[scene.id];
+      if (!isScreenshot(scene) || !copy) continue;
+      if (copy.headline) scene.headline = { ...scene.headline, ...copy.headline };
+      if (copy.subhead) scene.subhead = { ...scene.subhead, ...copy.subhead };
+    }
+  }
 }
 
 /**

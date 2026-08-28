@@ -20,7 +20,7 @@ async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<Ca
 /**
  * Composites each raw screenshot into the bezel on the theme background with
  * the scene copy above it. Drawn with a 2D canvas: the geometry comes from
- * frame.ts and the type sizes mirror the previewer's ScreenshotScene, so the
+ * frame.ts and the type sizes mirror the studio's ScreenshotScene, so the
  * export is what the browser showed.
  */
 export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string) {

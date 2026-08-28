@@ -1,8 +1,8 @@
 node_modules
 .DS_Store
 .argent/
-previewer/node_modules
-previewer/dist
+studio/node_modules
+studio/dist
 *.tsbuildinfo
 
 # App-specific config; copy goldie.config.example.ts

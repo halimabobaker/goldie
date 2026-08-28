@@ -6,6 +6,7 @@ import {
   loadDesign,
   loadManifest,
   type SavedDesign,
+  type SceneCopy,
   type StoreManifest,
   saveDesign,
 } from "./manifest";
@@ -35,7 +36,8 @@ export function App() {
  * scenes in the browser, so a background or frame change repaints instantly.
  * The CLI only runs when the sidebar's Export button asks for the final files.
  *
- * Two things survive a reload. The design choices (background, frame, font)
+ * Two things survive a reload. The design choices (background, frame, font,
+ * copy edited in the lightbox)
  * are written to goldie.design.json next to the config, debounced, so the
  * CLI picks them up too. The view choices (device, locale, dark) only matter
  * here and live in localStorage under the app's name. Either falls back to
@@ -65,6 +67,12 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       : (design.frameVariant ?? ""),
   );
   const [fontFamily, setFontFamily] = useState(saved.fontFamily ?? design.theme.fontFamily);
+  const [copy, setCopy] = useState<Record<string, SceneCopy>>(saved.copy ?? {});
+  const setSceneCopy = (sceneId: string, field: "headline" | "subhead", text: string) =>
+    setCopy((prev) => ({
+      ...prev,
+      [sceneId]: { ...prev[sceneId], [field]: { ...prev[sceneId]?.[field], [locale]: text } },
+    }));
 
   useEffect(() => {
     storeView(manifest.app.name, { device, locale, dark });
@@ -72,7 +80,7 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
 
   // Write the design to disk once it has sat still for a moment; a drag on
   // the gradient picker fires many changes a second. Skips the initial mount
-  // so opening the previewer never creates the file by itself. An empty frame
+  // so opening the studio never creates the file by itself. An empty frame
   // means the config's custom bezel art, which has nothing to save.
   const [saveError, setSaveError] = useState<string | null>(null);
   const mounted = useRef(false);
@@ -82,13 +90,18 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       return;
     }
     const timer = setTimeout(() => {
-      saveDesign({ background, frame: frame || undefined, fontFamily }).then(
+      saveDesign({
+        background,
+        frame: frame || undefined,
+        fontFamily,
+        copy: Object.keys(copy).length > 0 ? copy : undefined,
+      }).then(
         () => setSaveError(null),
         (e: Error) => setSaveError(e.message),
       );
     }, SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [background, frame, fontFamily]);
+  }, [background, frame, fontFamily, copy]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -142,6 +155,8 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
               background={background}
               frameUrl={frameUrl}
               fontFamily={fontFamily}
+              copy={copy}
+              onCopy={setSceneCopy}
             />
           </div>
         ) : (
@@ -154,7 +169,7 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
 
 type SavedView = { device?: string; locale?: string; dark?: boolean };
 
-const storageKey = (appName: string) => `goldie-previewer:${appName}`;
+const storageKey = (appName: string) => `goldie-studio:${appName}`;
 
 function loadView(appName: string): SavedView {
   try {

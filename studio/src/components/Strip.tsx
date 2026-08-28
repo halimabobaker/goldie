@@ -1,8 +1,9 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import type React from "react";
 import { type ReactNode, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { layout } from "../../../src/frame";
-import type { Design, DeviceCaptures, DeviceEntry, Theme } from "../manifest";
+import type { Design, DeviceCaptures, DeviceEntry, SceneCopy, Theme } from "../manifest";
 import { Button } from "./ui/button";
 
 /** Tiles shown at once; the App Store product page shows this many before scrolling. */
@@ -26,6 +27,10 @@ const MAX_SCREENSHOTS = 10;
  * spec pixels and expressed in cqw/cqh, so the tile is the composition scaled
  * down. Captions under the tiles show the spec size the export will produce;
  * the video's turns red when the clips sum outside Apple's 15-30s window.
+ *
+ * In the lightbox the headline and subhead are editable in place; a change
+ * is reported through onCopy for the current locale and layered over the
+ * config's copy here and in the CLI, via goldie.design.json.
  */
 export function Strip({
   design,
@@ -35,6 +40,8 @@ export function Strip({
   background,
   frameUrl,
   fontFamily,
+  copy,
+  onCopy,
 }: {
   design: Design;
   captures: DeviceCaptures;
@@ -43,6 +50,8 @@ export function Strip({
   background: string;
   frameUrl: string;
   fontFamily: string;
+  copy: Record<string, SceneCopy>;
+  onCopy: (sceneId: string, field: "headline" | "subhead", text: string) => void;
 }) {
   const theme = design.theme;
 
@@ -77,7 +86,10 @@ export function Strip({
     caption: string;
     bad: boolean;
     badReason?: string;
-    scene: ReactNode;
+    /** Whether the lightbox offers in-place copy editing (screenshots only). */
+    editable: boolean;
+    /** The composition; editable renders the copy as editable text (lightbox only). */
+    scene: (editable: boolean) => ReactNode;
   };
   const entries: Entry[] = [];
   if (segments.length > 0) {
@@ -88,7 +100,8 @@ export function Strip({
       caption: `${spec.preview.width}×${spec.preview.height} · ${totalSeconds.toFixed(1)}s`,
       bad: totalSeconds < 15 || totalSeconds > 30,
       badReason: "Clips sum outside the 15-30s Apple allows for previews.",
-      scene: <PreviewScene segments={segments} />,
+      editable: false,
+      scene: () => <PreviewScene segments={segments} />,
     });
   }
   for (const { scene, capture } of shots) {
@@ -98,18 +111,20 @@ export function Strip({
       height: spec.screenshot.height,
       caption: `${spec.screenshot.width}×${spec.screenshot.height}`,
       bad: false,
-      scene: (
+      editable: true,
+      scene: (editable) => (
         <ScreenshotScene
           spec={spec.screenshot}
           theme={theme}
           background={background}
           frameUrl={frameUrl}
           fontFamily={fontFamily}
-          headline={scene.headline[locale] ?? ""}
-          subhead={scene.subhead?.[locale]}
+          headline={copy[scene.id]?.headline?.[locale] ?? scene.headline[locale] ?? ""}
+          subhead={copy[scene.id]?.subhead?.[locale] ?? scene.subhead?.[locale]}
           headlineColor={headlineColor}
           subheadColor={subheadColor}
           captureUrl={capture.url}
+          onEdit={editable ? (field, text) => onCopy(scene.id, field, text) : undefined}
         />
       ),
     });
@@ -144,7 +159,7 @@ export function Strip({
       // it carries the name, and a duplicate would abort the transition.
       transitionName={named === i && open === null ? "lightbox-scene" : undefined}
     >
-      {entry.scene}
+      {entry.scene(false)}
     </Tile>
   ));
 
@@ -233,7 +248,8 @@ export function Strip({
 /**
  * Full-viewport view of one tile: the same composition, rendered as large as
  * the window allows at the spec's aspect ratio. Click outside, Escape, or the
- * close button dismiss it; arrow keys step between tiles.
+ * close button dismiss it; arrow keys step between tiles. Keys typed into the
+ * editable copy are left to the text.
  */
 function Lightbox({
   entry,
@@ -242,7 +258,13 @@ function Lightbox({
   onClose,
   onStep,
 }: {
-  entry: { width: number; height: number; caption: string; scene: ReactNode };
+  entry: {
+    width: number;
+    height: number;
+    caption: string;
+    editable: boolean;
+    scene: (editable: boolean) => ReactNode;
+  };
   index: number;
   count: number;
   onClose: () => void;
@@ -250,6 +272,7 @@ function Lightbox({
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") onStep(-1);
       else if (e.key === "ArrowRight") onStep(1);
@@ -268,11 +291,11 @@ function Lightbox({
         if (e.target === e.currentTarget) onClose();
       }}
       onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
+        if (e.key === "Escape" && e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="relative overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10 select-none"
+        className="relative overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10"
         style={{
           viewTransitionName: "lightbox-scene",
           aspectRatio: `${entry.width} / ${entry.height}`,
@@ -281,11 +304,12 @@ function Lightbox({
           width: `calc((100vh - 6rem) * ${entry.width / entry.height})`,
         }}
       >
-        {entry.scene}
+        {entry.scene(true)}
       </div>
       <p className="text-[11px] text-neutral-300 tabular-nums">
         {count > 1 ? `${index + 1} of ${count} · ` : ""}
         {entry.caption}
+        {entry.editable ? " · click the text to edit it" : ""}
       </p>
 
       <Button
@@ -405,7 +429,11 @@ function Canvas({
   );
 }
 
-/** Browser twin of renderScreenshots in src/render.ts; keep the numbers in step with it. */
+/**
+ * Browser twin of renderScreenshots in src/render.ts; keep the numbers in step
+ * with it. With onEdit set, the headline and subhead are contentEditable and
+ * report their text when editing ends (blur, or Enter).
+ */
 function ScreenshotScene({
   spec,
   theme,
@@ -417,6 +445,7 @@ function ScreenshotScene({
   headlineColor,
   subheadColor,
   captureUrl,
+  onEdit,
 }: {
   spec: { width: number; height: number };
   theme: Theme;
@@ -428,8 +457,10 @@ function ScreenshotScene({
   headlineColor: string;
   subheadColor: string;
   captureUrl: string;
+  onEdit?: (field: "headline" | "subhead", text: string) => void;
 }) {
   const g = geometry(spec, theme);
+  const editable = onEdit ? editableProps : () => ({});
   return (
     <Canvas background={background} fontFamily={fontFamily}>
       <div
@@ -455,10 +486,11 @@ function ScreenshotScene({
             fontWeight: 700,
             letterSpacing: "-0.16cqw",
           }}
+          {...editable((text) => onEdit?.("headline", text), headline, "Headline")}
         >
           {headline}
         </h1>
-        {subhead ? (
+        {subhead || onEdit ? (
           <p
             style={{
               margin: 0,
@@ -466,7 +498,9 @@ function ScreenshotScene({
               fontSize: "3.8cqw",
               lineHeight: 1.3,
               fontWeight: 400,
+              minWidth: "30cqw",
             }}
+            {...editable((text) => onEdit?.("subhead", text), subhead ?? "", "Subhead")}
           >
             {subhead}
           </p>
@@ -488,6 +522,37 @@ function ScreenshotScene({
       />
     </Canvas>
   );
+}
+
+/**
+ * Props that make a copy element editable in place. The text is committed
+ * on blur or Enter (Shift+Enter keeps a line break, as the export honours
+ * newlines); Escape restores the current value and leaves the field.
+ */
+function editableProps(commit: (text: string) => void, current: string, label: string) {
+  return {
+    contentEditable: "plaintext-only" as const,
+    suppressContentEditableWarning: true,
+    role: "textbox",
+    "aria-label": label,
+    "data-placeholder": label,
+    spellCheck: false,
+    className: "editable-copy",
+    onBlur: (e: React.FocusEvent<HTMLElement>) => {
+      const text = e.currentTarget.innerText.replace(/\n+$/, "");
+      if (text !== current) commit(text);
+    },
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        e.currentTarget.blur();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.currentTarget.innerText = current;
+        e.currentTarget.blur();
+      }
+    },
+  };
 }
 
 /**

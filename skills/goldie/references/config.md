@@ -39,13 +39,13 @@ const config: GoldieConfig = {
     deviceWidthRatio: 0.84,      // fraction of frame width the bezel occupies
   },
 
-  // Renders the realistic store page around the assets in the previewer.
+  // Renders the realistic store page around the assets in the studio.
   store: {
     name: "AppName",
     subtitle: { "en-US": "Under 30 characters, Apple's limit" },
     developer: "Company Name",
     category: "Productivity",
-    rating: 4.8,                 // cosmetic, previewer only
+    rating: 4.8,                 // cosmetic, studio only
     ratingCount: "1.2K Ratings",
     ageRating: "4+",
     price: "Free",

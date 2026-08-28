@@ -15,9 +15,9 @@ import { FONTS, fontFilePath } from "./fonts.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /**
- * `out/web/` - the previewer's static root. It holds the manifest, the
+ * `out/web/` - the studio's static root. It holds the manifest, the
  * bezel art, and symlinks to the finished assets and the raw
- * captures. The raw captures and bezels are what the previewer composites in
+ * captures. The raw captures and bezels are what the studio composites in
  * the browser (instant background/frame changes); the finished files under
  * screenshots/ and previews/ are what an export zips up.
  *
@@ -48,7 +48,7 @@ export type StoreManifest = {
   locales: string[];
   /** Keyed by device key, then locale. */
   assets: Record<string, Record<string, LocaleAssets>>;
-  /** Everything the previewer needs to composite scenes in the browser. */
+  /** Everything the studio needs to composite scenes in the browser. */
   design: {
     theme: Theme;
     /** null when the config points at custom bezel art. */
@@ -56,7 +56,7 @@ export type StoreManifest = {
     frameVariants: string[];
     /** Url of the config's custom bezel art; null when a bundled variant is used. */
     customFrameUrl: string | null;
-    /** Bundled typefaces, with the @font-face sources the previewer declares. */
+    /** Bundled typefaces, with the @font-face sources the studio declares. */
     fonts: Array<{
       key: string;
       family: string;

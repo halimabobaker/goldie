@@ -14,7 +14,7 @@ goldie capture    Replay each flow and save the raw captures
 goldie frame      Make framed, captioned PNGs from the raw screenshots
 goldie preview    Make the app preview video from the raw clips
 goldie verify     Check the finished assets against Apple's rules
-goldie manifest   Write out/web/store.json for the previewer
+goldie manifest   Write out/web/store.json for the studio
 goldie all        capture -> frame -> preview -> manifest -> verify
 ```
 
@@ -33,7 +33,7 @@ runnable on its own. Set `flowsDir` in the config to keep them somewhere else.
 The repo has a Claude skill in `skills/goldie/`. The skill explores the app on
 a simulator, writes the flows into `.argent/flows` and the config, runs the
 pipeline, and opens the
-previewer. Install it with the [skills.sh](https://skills.sh) CLI:
+studio. Install it with the [skills.sh](https://skills.sh) CLI:
 
 ```
 npx skills add kacperkapusciak/goldie
@@ -61,10 +61,10 @@ that reflects it.
 ## Preview the assets
 
 ```
-bun run previewer      # http://localhost:4321
+bun run studio      # http://localhost:4321
 ```
 
-The previewer is a React + Vite + Tailwind app. It shows the assets as the
+The studio is a React + Vite + Tailwind app. It shows the assets as the
 five-tile strip from the store page: the video first, then the screenshots.
 Each tile is the exact file for upload. The sidebar lists each file with its
 size and weight. A row turns red when the file breaks Apple's rules.
@@ -80,7 +80,7 @@ video" toggle because it takes some minutes. The CLI has the same overrides:
 
 The app reads `out/web/`: the manifest and symlinks to the finished
 assets. `out/raw` and `out/stage` are outside it. Because of this,
-`bun run previewer:build` makes a small deployable `previewer/dist`. The static
+`bun run studio:build` makes a small deployable `studio/dist`. The static
 build has no API. It is a viewer only.
 
 ## How a run works
@@ -167,15 +167,15 @@ config file. Measure its geometry from its alpha channel.
 `theme.fontFamily` is a CSS font stack. The system stack (SF Pro) needs no
 setup. Five typefaces ship in `assets/fonts/` (Google Fonts, OFL):
 Merriweather, DM Mono, Lato, DM Sans and Montserrat. Name one first in the
-stack and both the renderer and the previewer use the bundled files:
+stack and both the renderer and the studio use the bundled files:
 
 ```ts
 fontFamily: '"DM Sans", system-ui, sans-serif'
 ```
 
 `src/fonts.ts` lists the keys for the CLI (`--font dm-sans`) and the
-previewer's Font dropdown. Other fonts must be installed on the machine that
-renders, and the previewer's browser needs them too.
+studio's Font dropdown. Other fonts must be installed on the machine that
+renders, and the studio's browser needs them too.
 
 ## Add a device size
 

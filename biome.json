@@ -10,9 +10,9 @@
       "**",
       "!out",
       "!node_modules",
-      "!previewer/node_modules",
-      "!previewer/dist",
-      "!previewer/src/components/ui"
+      "!studio/node_modules",
+      "!studio/dist",
+      "!studio/src/components/ui"
     ]
   },
   "formatter": {

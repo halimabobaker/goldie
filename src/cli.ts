@@ -17,7 +17,7 @@ goldie - App Store screenshots and previews, driven by argent
   goldie frame      Composite raw screenshots into framed, captioned PNGs
   goldie preview    Join the raw clips into the app preview video
   goldie verify     Check finished assets against Apple's spec table
-  goldie manifest   Write out/store.json for the previewer app
+  goldie manifest   Write out/store.json for the studio app
   goldie all        capture -> frame -> preview -> manifest -> verify
 
 Options
@@ -47,7 +47,7 @@ async function main() {
   );
 
   // One-run overrides on top of the config and goldie.design.json (the
-  // previewer's saved choices). Copy a value into the config to keep it.
+  // studio's saved choices). Copy a value into the config to keep it.
   const font = opt("font");
   applyDesign(cfg, {
     background: opt("background"),

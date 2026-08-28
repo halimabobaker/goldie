@@ -5,7 +5,7 @@ import { GlobalFonts } from "@napi-rs/canvas";
 /**
  * Typefaces bundled in assets/fonts/ (Google Fonts, OFL). Each one ships a
  * regular and a bold cut; the renderer registers them with the canvas and
- * the previewer declares matching @font-face rules, so a bundled font looks
+ * the studio declares matching @font-face rules, so a bundled font looks
  * the same in the browser and in the exported PNGs. `theme.fontFamily` stays
  * a plain CSS string: system fonts keep working, and `fontStack()` builds the
  * value for a bundled one.
