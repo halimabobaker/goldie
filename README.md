@@ -1,6 +1,4 @@
-# goldie
-
-<img width="1580" height="844" alt="Screenshot 2026-08-28 at 1 58 06 PM" src="https://github.com/user-attachments/assets/ba5a22af-2b7f-4544-9bef-5b9ccc5c789f" />
+# Goldie: App Store screenshot generator for coding agents
 
 goldie makes App Store screenshots and app preview videos for an iOS app.
 [argent](https://github.com/software-mansion/argent) replays flows on a
@@ -52,6 +50,8 @@ H.264 preview, per locale. Previews must run 15 to 30 seconds.
 
 ## Design
 
+<img width="1580" height="844" alt="Screenshot 2026-08-28 at 1 58 06 PM" src="https://github.com/user-attachments/assets/ba5a22af-2b7f-4544-9bef-5b9ccc5c789f" />
+
 The studio switches backgrounds, templates, bezel, fonts and per-tile copy,
 and saves to `goldie.design.json` so the CLI renders the same thing. The
 config also takes:
@@ -66,7 +66,7 @@ config also takes:
   and Montserrat are bundled.
 - `decorations`: badges or images layered behind the device.
 
-## Gotchas
+## Remarks
 
 - Use a Release build; Debug builds paint LogBox banners into captures.
 - Flows fail when the app changes. Ask coding agent to repair them, or re-record
@@ -75,7 +75,7 @@ config also takes:
 ## Sponsored by Software Mansion
 
 goldie is sponsored by [Software Mansion](https://swmansion.com), the
-software agency that created [argent](https://github.com/software-mansion/argent).
+software agency that created [Argent](https://github.com/software-mansion/argent).
 You can [hire Software Mansion](https://swmansion.com/contact) for your next project.
 
 <a href="https://swmansion.com"><img src="assets/software-mansion-logo-positive-s-left-top@1x.png" alt="Software Mansion" width="200" /></a>
