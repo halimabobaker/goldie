@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Design } from "../manifest";
+import type { Design, LayoutEntry } from "../manifest";
 import { Field, Select } from "./Sidebar";
+import { TemplatePicker } from "./TemplatePicker";
 
 /**
- * The design controls: pick a background, a bezel variant and a font. All are plain
+ * The design controls: pick a background, a layout, a bezel variant (or no
+ * bezel) and a font. All are plain
  * React state owned by the App - the strip composites them in the browser, so
  * every change repaints instantly. Nothing runs until Export; copy values you
  * like into goldie.config.ts to keep them.
@@ -47,17 +49,29 @@ export function DesignPanel({
   background,
   frame,
   fontFamily,
+  template,
+  layout,
+  screenOnly,
   onBackground,
   onFrame,
   onFontFamily,
+  onTemplate,
+  onLayout,
+  onScreenOnly,
 }: {
   design: Design;
   background: string;
   frame: string;
   fontFamily: string;
+  template: string;
+  layout: string;
+  screenOnly: boolean;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
   onFontFamily: (v: string) => void;
+  onTemplate: (v: string) => void;
+  onLayout: (v: string) => void;
+  onScreenOnly: (v: boolean) => void;
 }) {
   // Each choice is a full CSS font stack, so the Strip can use it as-is. A
   // config stack that matches none of them shows as "custom (from config)".
@@ -142,8 +156,34 @@ export function DesignPanel({
         </Tabs>
       </Field>
 
-      {design.frameVariants.length > 1 || design.frameVariant === null ? (
-        <Field label="Device frame">
+      <Field label="Template">
+        <TemplatePicker design={design} value={template} layout={layout} onChange={onTemplate} />
+      </Field>
+
+      {template === "" ? (
+        <Field label="Layout">
+          <Select value={layout} onChange={onLayout} options={layoutOptions(design.layouts)} />
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {design.layouts.find((l) => l.key === layout)?.description ?? ""}
+          </p>
+        </Field>
+      ) : null}
+
+      <Field label="Device">
+        <Tabs
+          value={screenOnly ? "screen" : "bezel"}
+          onValueChange={(v) => onScreenOnly(v === "screen")}
+        >
+          <TabsList className="w-full">
+            <TabsTrigger value="bezel" className="flex-1">
+              Bezel
+            </TabsTrigger>
+            <TabsTrigger value="screen" className="flex-1">
+              Screen only
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {!screenOnly && (design.frameVariants.length > 1 || design.frameVariant === null) ? (
           <Select
             value={frame}
             onChange={onFrame}
@@ -154,14 +194,19 @@ export function DesignPanel({
                 : []),
             ]}
           />
-        </Field>
-      ) : null}
+        ) : null}
+      </Field>
 
       <Field label="Font">
         <Select value={fontFamily} onChange={onFontFamily} options={fontOptions} />
       </Field>
     </div>
   );
+}
+
+/** Select options for the layouts; a two-tile layout says so. */
+export function layoutOptions(layouts: LayoutEntry[]): Array<[string, string]> {
+  return layouts.map((l) => [l.key, l.span > 1 ? `${l.label} · 2 tiles` : l.label]);
 }
 
 function ColorInput({
