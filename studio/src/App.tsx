@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Strip } from "./components/Strip";
+import { useHistory } from "./lib/useHistory";
 import {
   type BundledFont,
+  type Design,
   loadDesign,
   loadManifest,
   type SavedDesign,
@@ -64,54 +66,55 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   const [dark, setDark] = useState(
     new URLSearchParams(window.location.search).get("dark") === "1" || view.dark === true,
   );
-  const [background, setBackground] = useState(saved.background ?? design.theme.background);
-  const [frame, setFrame] = useState(
-    saved.frame && design.frameVariants.includes(saved.frame)
-      ? saved.frame
-      : (design.frameVariant ?? ""),
-  );
-  const [fontFamily, setFontFamily] = useState(saved.fontFamily ?? design.theme.fontFamily);
-  const [copy, setCopy] = useState<Record<string, SceneCopy>>(saved.copy ?? {});
   const knownLayout = (key: string | undefined) =>
     key && design.layouts.some((l) => l.key === key) ? key : undefined;
-  const [layout, setLayout] = useState(knownLayout(saved.layout) ?? design.layout);
-  // A built-in template key, "" for none, or CUSTOM_TEMPLATE for the config's own sequence.
-  const [template, setTemplate] = useState(() => {
-    if (saved.template !== undefined && design.templates.some((t) => t.key === saved.template))
-      return saved.template;
-    if (saved.template === "") return "";
-    if (Array.isArray(design.template)) return CUSTOM_TEMPLATE;
-    return design.template ?? "";
-  });
-  const [screenOnly, setScreenOnly] = useState(saved.screenOnly ?? design.screenOnly);
-  // Per-scene layout overrides; a scene absent here follows the default above.
-  const [sceneLayouts, setSceneLayouts] = useState<Record<string, string>>(() => {
-    const out: Record<string, string> = {};
-    for (const scene of design.scenes) {
-      const key = knownLayout(saved.sceneLayouts?.[scene.id]);
-      if (key) out[scene.id] = key;
-    }
-    return out;
-  });
+  const { state, set } = useHistory<DesignState>(() => ({
+    background: saved.background ?? design.theme.background,
+    frame:
+      saved.frame && design.frameVariants.includes(saved.frame)
+        ? saved.frame
+        : (design.frameVariant ?? ""),
+    fontFamily: saved.fontFamily ?? design.theme.fontFamily,
+    copy: saved.copy ?? {},
+    layout: knownLayout(saved.layout) ?? design.layout,
+    template: initialTemplate(design, saved),
+    screenOnly: saved.screenOnly ?? design.screenOnly,
+    sceneLayouts: initialSceneLayouts(design, saved, knownLayout),
+    order: initialOrder(design, saved),
+  }));
+  const { background, frame, fontFamily, copy, layout, template, screenOnly, sceneLayouts, order } =
+    state;
+  // Each setter names its field so a burst of edits to one control (a drag
+  // on the gradient picker) collapses into a single undo step.
+  const field =
+    <K extends keyof DesignState>(key: K) =>
+    (value: DesignState[K]) =>
+      set(key, (prev) => ({ ...prev, [key]: value }));
+  const setBackground = field("background");
+  const setFrame = field("frame");
+  const setFontFamily = field("fontFamily");
+  const setLayout = field("layout");
+  const setTemplate = field("template");
+  const setScreenOnly = field("screenOnly");
+  const setOrder = field("order");
+  // Per-scene layout overrides; a scene absent there follows the default above.
   const setSceneLayout = (sceneId: string, key: string | undefined) =>
-    setSceneLayouts((prev) => {
-      const next = { ...prev };
+    set("sceneLayouts", (prev) => {
+      const next = { ...prev.sceneLayouts };
       if (key) next[sceneId] = key;
       else delete next[sceneId];
-      return next;
+      return { ...prev, sceneLayouts: next };
     });
-  // Screenshot scene ids as arranged by dragging tiles; empty means the
-  // config's order. Ids no longer in the config are dropped, new ones follow.
-  const [order, setOrder] = useState<string[]>(() => {
-    const ids = design.scenes.map((s) => s.id);
-    if (!saved.order) return [];
-    const kept = saved.order.filter((id) => ids.includes(id));
-    return [...kept, ...ids.filter((id) => !kept.includes(id))];
-  });
-  const setSceneCopy = (sceneId: string, field: "headline" | "subhead", text: string) =>
-    setCopy((prev) => ({
+  const setSceneCopy = (sceneId: string, fieldName: "headline" | "subhead", text: string) =>
+    set(`copy:${sceneId}:${fieldName}`, (prev) => ({
       ...prev,
-      [sceneId]: { ...prev[sceneId], [field]: { ...prev[sceneId]?.[field], [locale]: text } },
+      copy: {
+        ...prev.copy,
+        [sceneId]: {
+          ...prev.copy[sceneId],
+          [fieldName]: { ...prev.copy[sceneId]?.[fieldName], [locale]: text },
+        },
+      },
     }));
 
   useEffect(() => {
@@ -226,6 +229,51 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       {saveError ? <Toast message={`Could not save design: ${saveError}`} /> : null}
     </div>
   );
+}
+
+/** Everything the undo stack tracks: the design choices saved to goldie.design.json. */
+type DesignState = {
+  background: string;
+  frame: string;
+  fontFamily: string;
+  copy: Record<string, SceneCopy>;
+  layout: string;
+  /** A built-in template key, "" for none, or CUSTOM_TEMPLATE for the config's own sequence. */
+  template: string;
+  screenOnly: boolean;
+  /** Per-scene layout overrides; a scene absent here follows `layout`. */
+  sceneLayouts: Record<string, string>;
+  /** Screenshot scene ids as arranged by dragging tiles; empty means the config's order. */
+  order: string[];
+};
+
+function initialTemplate(design: Design, saved: SavedDesign): string {
+  if (saved.template !== undefined && design.templates.some((t) => t.key === saved.template))
+    return saved.template;
+  if (saved.template === "") return "";
+  if (Array.isArray(design.template)) return CUSTOM_TEMPLATE;
+  return design.template ?? "";
+}
+
+function initialSceneLayouts(
+  design: Design,
+  saved: SavedDesign,
+  knownLayout: (key: string | undefined) => string | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const scene of design.scenes) {
+    const key = knownLayout(saved.sceneLayouts?.[scene.id]);
+    if (key) out[scene.id] = key;
+  }
+  return out;
+}
+
+/** Ids no longer in the config are dropped, new ones follow the saved order. */
+function initialOrder(design: Design, saved: SavedDesign): string[] {
+  const ids = design.scenes.map((s) => s.id);
+  if (!saved.order) return [];
+  const kept = saved.order.filter((id) => ids.includes(id));
+  return [...kept, ...ids.filter((id) => !kept.includes(id))];
 }
 
 /** Bottom-center notice; the save retries on the next change, so it needs no dismiss. */
