@@ -170,6 +170,12 @@ export type LoadedConfig = GoldieConfig & {
   /** Absolute directory the scene flows resolve against. */
   flowsDir: string;
   outDir: string;
+  /**
+   * The studio's per-scene layout overrides (goldie.design.json). Kept apart
+   * from the scenes so the manifest reports only the config's own layouts;
+   * baked into `scene.layout` they would outrank every later template choice.
+   */
+  sceneLayouts?: Record<string, LayoutKey>;
 };
 
 /**
@@ -297,10 +303,12 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
   if (design.layout) cfg.theme.layout = checkedLayout(design.layout);
   if (design.screenOnly !== undefined) cfg.theme.screenOnly = design.screenOnly;
   if (design.sceneLayouts) {
+    const overrides: Record<string, LayoutKey> = {};
     for (const scene of cfg.scenes) {
       const key = design.sceneLayouts[scene.id];
-      if (isScreenshot(scene) && key) scene.layout = checkedLayout(key);
+      if (isScreenshot(scene) && key) overrides[scene.id] = checkedLayout(key);
     }
+    cfg.sceneLayouts = { ...cfg.sceneLayouts, ...overrides };
   }
 }
 
@@ -323,6 +331,7 @@ export function resolvedScenes(cfg: LoadedConfig) {
   return resolveScenes(cfg.scenes.filter(isScreenshot), {
     template: cfg.theme.template,
     layout: cfg.theme.layout,
+    sceneLayouts: cfg.sceneLayouts,
   });
 }
 

@@ -112,6 +112,18 @@ export function Strip({
     sceneLayouts,
   });
   const layoutOf = (scene: DesignScene) => resolved.find((r) => r.scene.id === scene.id)!;
+  // The same resolution with no per-scene overrides: what the template (or
+  // theme layout) gives each scene, which the lightbox names as "Default".
+  const unforced = resolveScenes(scenes, {
+    template: Array.isArray(template)
+      ? (template as LayoutKey[])
+      : isTemplateKey(template)
+        ? template
+        : undefined,
+    layout,
+  });
+  const defaultLayoutOf = (scene: DesignScene) =>
+    unforced.find((r) => r.scene.id === scene.id)!.layout.key;
 
   // Mirrors the CLI's --background handling: a dark background flips the copy
   // to light, and per-scene background overrides are dropped, so the export
@@ -155,7 +167,12 @@ export function Strip({
     /** Set on screenshot tiles, which can be dragged into a new order. */
     sceneId?: string;
     /** The lightbox's per-scene layout override control (screenshots only). */
-    layout?: { value: string | undefined; onChange: (key: string | undefined) => void };
+    layout?: {
+      value: string | undefined;
+      /** The layout the scene gets with no override: the template's pick, or the theme layout. */
+      defaultKey: string;
+      onChange: (key: string | undefined) => void;
+    };
   };
   const entries: Entry[] = [];
   if (segments.length > 0) {
@@ -176,6 +193,7 @@ export function Strip({
       : undefined;
     const layoutControl = {
       value: sceneLayouts[scene.id],
+      defaultKey: defaultLayoutOf(scene),
       onChange: (key: string | undefined) => onSceneLayout(scene.id, key),
     };
     for (let slice = 0; slice < spec.span; slice++) {
@@ -375,7 +393,6 @@ export function Strip({
         <Lightbox
           entry={entries[open]}
           layouts={design.layouts}
-          defaultLayout={layout}
           index={open}
           count={entries.length}
           onClose={() => setOpen(null)}
@@ -401,7 +418,6 @@ export function Strip({
 function Lightbox({
   entry,
   layouts,
-  defaultLayout,
   index,
   count,
   onClose,
@@ -412,10 +428,14 @@ function Lightbox({
     height: number;
     editable: boolean;
     scene: (editable: boolean) => ReactNode;
-    layout?: { value: string | undefined; onChange: (key: string | undefined) => void };
+    layout?: {
+      value: string | undefined;
+      /** The layout the scene gets with no override: the template's pick, or the theme layout. */
+      defaultKey: string;
+      onChange: (key: string | undefined) => void;
+    };
   };
   layouts: Design["layouts"];
-  defaultLayout: string;
   index: number;
   count: number;
   onClose: () => void;
@@ -466,7 +486,7 @@ function Lightbox({
               options={[
                 [
                   "",
-                  `Default (${layouts.find((l) => l.key === defaultLayout)?.label ?? defaultLayout})`,
+                  `Default (${layouts.find((l) => l.key === entry.layout?.defaultKey)?.label ?? entry.layout.defaultKey})`,
                 ],
                 ...layoutOptions(layouts),
               ]}

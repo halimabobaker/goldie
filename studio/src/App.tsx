@@ -94,7 +94,10 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   const setFrame = field("frame");
   const setFontFamily = field("fontFamily");
   const setLayout = field("layout");
-  const setTemplate = field("template");
+  // Picking a template replaces the strip's layout sequence, so any per-scene
+  // overrides made against the previous one are dropped with it.
+  const setTemplate = (value: string) =>
+    set("template", (prev) => ({ ...prev, template: value, sceneLayouts: {} }));
   const setScreenOnly = field("screenOnly");
   const setOrder = field("order");
   // Per-scene layout overrides; a scene absent there follows the default above.
