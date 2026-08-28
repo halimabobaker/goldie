@@ -9,25 +9,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import type { StoreManifest } from "../manifest";
 import { DesignPanel } from "./DesignPanel";
 import { ExportPanel } from "./ExportPanel";
 
+/**
+ * The left rail: the goldie wordmark with the appearance toggle, what the
+ * strip shows (device and locale, when there is a choice), the design
+ * controls, and a sticky Export footer.
+ */
 export function Sidebar({
   manifest,
   device,
   locale,
   dark,
+  onDevice,
+  onLocale,
+  onDark,
   background,
   frame,
   fontFamily,
   template,
   layout,
   screenOnly,
-  onDevice,
-  onLocale,
-  onDark,
   onBackground,
   onFrame,
   onFontFamily,
@@ -39,15 +43,15 @@ export function Sidebar({
   device: string;
   locale: string;
   dark: boolean;
+  onDevice: (v: string) => void;
+  onLocale: (v: string) => void;
+  onDark: (v: boolean) => void;
   background: string;
   frame: string;
   fontFamily: string;
   template: string;
   layout: string;
   screenOnly: boolean;
-  onDevice: (v: string) => void;
-  onLocale: (v: string) => void;
-  onDark: (v: boolean) => void;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
   onFontFamily: (v: string) => void;
@@ -56,10 +60,9 @@ export function Sidebar({
   onScreenOnly: (v: boolean) => void;
 }) {
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r bg-sidebar p-6 text-sidebar-foreground">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[15px] font-semibold">
-          <span aria-hidden="true">✨ </span>
+    <aside className="flex w-[300px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-sidebar-border pr-3 pl-5">
+        <h1 className="text-base font-semibold tracking-tight">
           <span className="goldie-wordmark">goldie</span>
         </h1>
         <Button
@@ -70,46 +73,49 @@ export function Sidebar({
         >
           {dark ? <SunIcon /> : <MoonIcon />}
         </Button>
+      </header>
+
+      <div className="sidebar-scroll flex-1 overflow-y-auto">
+        {manifest.devices.length > 1 || manifest.locales.length > 1 ? (
+          <div className="flex flex-col gap-4 border-b border-sidebar-border p-5">
+            {manifest.devices.length > 1 ? (
+              <Field label="Device">
+                <Select
+                  value={device}
+                  onChange={onDevice}
+                  options={manifest.devices.map((d) => [d.key, `${d.label}"`])}
+                />
+              </Field>
+            ) : null}
+            {manifest.locales.length > 1 ? (
+              <Field label="Locale">
+                <Select
+                  value={locale}
+                  onChange={onLocale}
+                  options={manifest.locales.map((l) => [l, l])}
+                />
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
+        <DesignPanel
+          design={manifest.design}
+          background={background}
+          frame={frame}
+          fontFamily={fontFamily}
+          template={template}
+          layout={layout}
+          screenOnly={screenOnly}
+          onBackground={onBackground}
+          onFrame={onFrame}
+          onFontFamily={onFontFamily}
+          onTemplate={onTemplate}
+          onLayout={onLayout}
+          onScreenOnly={onScreenOnly}
+        />
       </div>
 
-      <DesignPanel
-        design={manifest.design}
-        background={background}
-        frame={frame}
-        fontFamily={fontFamily}
-        template={template}
-        layout={layout}
-        screenOnly={screenOnly}
-        onBackground={onBackground}
-        onFrame={onFrame}
-        onFontFamily={onFontFamily}
-        onTemplate={onTemplate}
-        onLayout={onLayout}
-        onScreenOnly={onScreenOnly}
-      />
-
-      {manifest.devices.length > 1 ? (
-        <Field label="Device">
-          <Select
-            value={device}
-            onChange={onDevice}
-            options={manifest.devices.map((d) => [d.key, `${d.label}"`])}
-          />
-        </Field>
-      ) : null}
-
-      {manifest.locales.length > 1 ? (
-        <Field label="Locale">
-          <Select
-            value={locale}
-            onChange={onLocale}
-            options={manifest.locales.map((l) => [l, l])}
-          />
-        </Field>
-      ) : null}
-
-      <div className="mt-auto flex flex-col gap-4">
-        <Separator />
+      <footer className="shrink-0 border-t border-sidebar-border bg-sidebar p-4">
         <ExportPanel
           background={background}
           frame={frame}
@@ -118,7 +124,7 @@ export function Sidebar({
           layout={layout}
           screenOnly={screenOnly}
         />
-      </div>
+      </footer>
     </aside>
   );
 }
@@ -133,12 +139,21 @@ function fontKey(design: StoreManifest["design"], fontFamily: string): string | 
   return design.fonts.find((f) => fontFamily.startsWith(`"${f.family}"`))?.key ?? "system";
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-2">
-      <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </Label>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between">
+        <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+        {hint ? <span className="text-[11px] text-muted-foreground/70">{hint}</span> : null}
+      </div>
       {children}
     </div>
   );
@@ -154,14 +169,18 @@ export function Select({
   value,
   onChange,
   options,
+  size = "default",
+  className,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: Array<[string, string]>;
+  size?: "sm" | "default";
+  className?: string;
 }) {
   return (
     <SelectRoot value={value || EMPTY} onValueChange={(v) => onChange(v === EMPTY ? "" : v)}>
-      <SelectTrigger className="w-full">
+      <SelectTrigger size={size} className={className ?? "w-full"}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

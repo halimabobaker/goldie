@@ -167,21 +167,21 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
     : (design.customFrameUrl ?? `frames/${design.frameVariants[0]}.png`);
 
   return (
-    <div className="flex h-full bg-muted text-foreground">
+    <div className="flex h-full bg-stage text-foreground">
       <Sidebar
         manifest={manifest}
         device={device}
         locale={locale}
         dark={dark}
+        onDevice={setDevice}
+        onLocale={setLocale}
+        onDark={setDark}
         background={background}
         frame={frame}
         fontFamily={fontFamily}
         template={template}
         layout={layout}
         screenOnly={screenOnly}
-        onDevice={setDevice}
-        onLocale={setLocale}
-        onDark={setDark}
         onBackground={setBackground}
         onFrame={setFrame}
         onFontFamily={setFontFamily}
@@ -190,42 +190,50 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         onScreenOnly={setScreenOnly}
       />
 
-      <main className="relative grid flex-1 place-items-center overflow-auto p-10">
-        {saveError ? (
-          <p className="absolute top-3 right-3 rounded-md bg-destructive px-3 py-1.5 text-[12px] text-white">
-            {saveError}
-          </p>
-        ) : null}
-        {spec && captures ? (
-          <div className="w-full max-w-[1400px]">
-            <Strip
-              design={design}
-              captures={captures}
-              spec={spec}
-              locale={locale}
-              background={background}
-              frameUrl={frameUrl}
-              fontFamily={fontFamily}
-              copy={copy}
-              onCopy={setSceneCopy}
-              order={order}
-              onReorder={setOrder}
-              template={
-                template === CUSTOM_TEMPLATE && Array.isArray(design.template)
-                  ? design.template
-                  : template
-              }
-              layout={layout}
-              screenOnly={screenOnly}
-              sceneLayouts={sceneLayouts}
-              onSceneLayout={setSceneLayout}
-            />
-          </div>
-        ) : (
-          <Empty message={`No raw captures for ${device}. Run: bun src/cli.ts capture`} />
-        )}
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <main className="relative grid flex-1 place-items-center overflow-auto p-10">
+          {spec && captures ? (
+            <div className="w-full max-w-[1400px]">
+              <Strip
+                design={design}
+                captures={captures}
+                spec={spec}
+                locale={locale}
+                background={background}
+                frameUrl={frameUrl}
+                fontFamily={fontFamily}
+                copy={copy}
+                onCopy={setSceneCopy}
+                order={order}
+                onReorder={setOrder}
+                template={
+                  template === CUSTOM_TEMPLATE && Array.isArray(design.template)
+                    ? design.template
+                    : template
+                }
+                layout={layout}
+                screenOnly={screenOnly}
+                sceneLayouts={sceneLayouts}
+                onSceneLayout={setSceneLayout}
+              />
+            </div>
+          ) : (
+            <Empty message={`No raw captures for ${device}. Run: bun src/cli.ts capture`} />
+          )}
+        </main>
+      </div>
+
+      {saveError ? <Toast message={`Could not save design: ${saveError}`} /> : null}
     </div>
+  );
+}
+
+/** Bottom-center notice; the save retries on the next change, so it needs no dismiss. */
+function Toast({ message }: { message: string }) {
+  return (
+    <output className="animate-in fade-in slide-in-from-bottom-2 fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-destructive/30 bg-popover px-3.5 py-2 text-xs text-destructive shadow-lg duration-200">
+      {message}
+    </output>
   );
 }
 
@@ -265,7 +273,7 @@ function fontFaces(fonts: BundledFont[]): string {
 
 function Empty({ message }: { message: string }) {
   return (
-    <div className="grid h-full place-items-center bg-muted px-10 text-center">
+    <div className="grid h-full place-items-center px-10 text-center">
       <p className="max-w-md whitespace-pre-line text-[14px] leading-relaxed text-muted-foreground">
         {message}
       </p>

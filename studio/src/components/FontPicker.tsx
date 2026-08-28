@@ -44,7 +44,7 @@ function FontOption({ css, label }: { css: string; label: string }) {
       <span
         aria-hidden
         style={{ fontFamily: css }}
-        className="flex h-7 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-[15px] leading-none font-bold text-foreground ring-1 ring-border"
+        className="swatch-edge flex h-7 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-[15px] leading-none font-bold text-foreground"
       >
         Aa
       </span>

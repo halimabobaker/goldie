@@ -146,7 +146,6 @@ export function Strip({
     key: string;
     width: number;
     height: number;
-    caption: string;
     bad: boolean;
     badReason?: string;
     /** Whether the lightbox offers in-place copy editing (screenshots only). */
@@ -164,7 +163,6 @@ export function Strip({
       key: "preview",
       width: tileSpec.preview.width,
       height: tileSpec.preview.height,
-      caption: `${totalSeconds.toFixed(1)}s`,
       bad: totalSeconds < 15 || totalSeconds > 30,
       badReason: "Clips sum outside the 15-30s Apple allows for previews.",
       editable: false,
@@ -185,7 +183,6 @@ export function Strip({
         key: spec.span > 1 ? `${scene.id}#${slice + 1}` : scene.id,
         width: tileSpec.screenshot.width,
         height: tileSpec.screenshot.height,
-        caption: spec.span > 1 ? `${slice + 1} of ${spec.span}` : "",
         bad: false,
         editable: true,
         // Only the first slice drags; the second follows it.
@@ -248,7 +245,6 @@ export function Strip({
         draggable={entry.sceneId !== undefined}
         width={entry.width}
         height={entry.height}
-        caption={entry.caption}
         bad={entry.bad}
         badReason={entry.badReason}
         onOpen={() => {
@@ -300,8 +296,6 @@ export function Strip({
 
   const visible = pageCells[Math.min(page, pages - 1)];
   const visibleIds = visible.flatMap((c) => (c.sceneId ? [c.sceneId] : []));
-  const firstTile = visible[0]?.tiles[0] ?? 0;
-  const visibleTiles = visible.reduce((n, c) => n + c.tiles.length, 0);
   // Pad the last page so tiles keep the same width as on a full page.
   const columns = pages > 1 ? PAGE_SIZE : entries.length;
   // The page's scenes in their new order, spliced back into the full order.
@@ -370,20 +364,11 @@ export function Strip({
         ) : null}
       </div>
 
-      {pages > 1 || dropped > 0 ? (
-        <div className="flex items-center justify-center gap-3 text-[11px] text-neutral-400 dark:text-neutral-500">
-          {pages > 1 ? (
-            <span className="tabular-nums">
-              {firstTile + 1}–{firstTile + visibleTiles} of {entries.length}
-            </span>
-          ) : null}
-          {dropped > 0 ? (
-            <span className="font-medium text-red-500">
-              {dropped} more scene{dropped === 1 ? "" : "s"} hidden: the App Store allows{" "}
-              {MAX_SCREENSHOTS} screenshots.
-            </span>
-          ) : null}
-        </div>
+      {dropped > 0 ? (
+        <p className="text-center text-[11px] font-medium text-destructive">
+          {dropped} more scene{dropped === 1 ? "" : "s"} hidden: the App Store allows{" "}
+          {MAX_SCREENSHOTS} screenshots.
+        </p>
       ) : null}
 
       {open !== null && entries[open] ? (
@@ -425,7 +410,6 @@ function Lightbox({
   entry: {
     width: number;
     height: number;
-    caption: string;
     editable: boolean;
     scene: (editable: boolean) => ReactNode;
     layout?: { value: string | undefined; onChange: (key: string | undefined) => void };
@@ -473,10 +457,7 @@ function Lightbox({
       >
         {entry.scene(true)}
       </div>
-      <div className="flex items-center gap-3 text-[11px] text-neutral-300 tabular-nums">
-        <p>
-          {[count > 1 ? `${index + 1} of ${count}` : "", entry.caption].filter(Boolean).join(" · ")}
-        </p>
+      <div className="flex items-center gap-3 text-[11px] text-neutral-300">
         {entry.layout ? (
           <div className="dark w-44 text-foreground">
             <Select
@@ -560,7 +541,7 @@ function PagerButton({
         e.stopPropagation();
         onClick();
       }}
-      className={`absolute top-1/2 -translate-y-1/2 rounded-full shadow-md ${offset}`}
+      className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-popover shadow-md transition-none hover:bg-popover focus-visible:ring-0 active:not-aria-[haspopup]:-translate-y-1/2 ${offset}`}
     >
       <Icon />
     </Button>
@@ -925,7 +906,6 @@ function PreviewScene({ segments }: { segments: Array<{ url: string; durationSec
 function Tile({
   width,
   height,
-  caption,
   bad,
   badReason,
   onOpen,
@@ -935,7 +915,6 @@ function Tile({
 }: {
   width: number;
   height: number;
-  caption: string;
   bad: boolean;
   badReason?: string;
   onOpen: () => void;
@@ -952,21 +931,16 @@ function Tile({
         }
         title={draggable ? "Drag to reorder" : undefined}
         onClick={onOpen}
-        className={`relative block w-full overflow-hidden rounded-2xl bg-neutral-200 shadow-sm ring-1 ring-black/10 transition select-none hover:ring-black/30 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:bg-neutral-800 dark:ring-white/10 dark:hover:ring-white/30 ${
+        className={`tile-shadow relative block w-full overflow-hidden rounded-2xl bg-neutral-200 ring-1 ring-black/10 transition-[transform,box-shadow,--tw-ring-color] duration-150 select-none hover:-translate-y-0.5 hover:ring-black/25 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none dark:bg-neutral-800 dark:ring-white/10 dark:hover:ring-white/30 ${
           draggable ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
         }`}
         style={{ aspectRatio: `${width} / ${height}`, viewTransitionName: transitionName }}
       >
         {children}
       </button>
-      <p
-        title={bad ? badReason : undefined}
-        className={`min-h-[1lh] pt-2 text-center text-[11px] tabular-nums ${
-          bad ? "font-medium text-red-500" : "text-neutral-400 dark:text-neutral-500"
-        }`}
-      >
-        {caption}
-      </p>
+      {bad ? (
+        <p className="pt-2 text-center text-[11px] font-medium text-destructive">{badReason}</p>
+      ) : null}
     </div>
   );
 }

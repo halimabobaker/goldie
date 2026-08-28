@@ -1,4 +1,4 @@
-import { Loader2Icon } from "lucide-react";
+import { DownloadIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CUSTOM_TEMPLATE } from "../App";
@@ -88,20 +88,23 @@ export function ExportPanel({
       {log !== null ? (
         <pre
           ref={logRef}
-          className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-2 text-[10px] leading-relaxed text-muted-foreground"
+          className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-2 font-mono text-[10px] leading-relaxed text-muted-foreground"
         >
           {log || "Starting…"}
         </pre>
       ) : null}
 
-      <Button className="w-full" onClick={() => void exportZip()} disabled={busy}>
+      <Button size="lg" className="w-full" onClick={() => void exportZip()} disabled={busy}>
         {busy ? (
           <>
             <Loader2Icon className="animate-spin" />
             Exporting…
           </>
         ) : (
-          "Export"
+          <>
+            <DownloadIcon />
+            Export screenshots
+          </>
         )}
       </Button>
     </div>
