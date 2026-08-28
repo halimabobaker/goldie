@@ -60,8 +60,8 @@ export function Sidebar({
   onScreenOnly: (v: boolean) => void;
 }) {
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-sidebar-border pr-3 pl-5">
+    <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <header className="flex h-14 shrink-0 items-center justify-between pr-3 pl-5">
         <h1 className="text-base font-semibold tracking-tight select-none">
           <span className="goldie-wordmark">goldie</span>
         </h1>
@@ -77,7 +77,7 @@ export function Sidebar({
 
       <div className="sidebar-scroll flex-1 overflow-y-auto">
         {manifest.devices.length > 1 || manifest.locales.length > 1 ? (
-          <div className="flex flex-col gap-4 border-b border-sidebar-border p-5">
+          <div className="flex flex-col gap-4 p-5">
             {manifest.devices.length > 1 ? (
               <Field label="Device">
                 <Select
@@ -115,7 +115,7 @@ export function Sidebar({
         />
       </div>
 
-      <footer className="shrink-0 border-t border-sidebar-border bg-sidebar p-4">
+      <footer className="shrink-0 bg-sidebar p-4">
         <ExportPanel
           background={background}
           frame={frame}

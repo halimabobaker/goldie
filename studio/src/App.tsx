@@ -167,7 +167,7 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
     : (design.customFrameUrl ?? `frames/${design.frameVariants[0]}.png`);
 
   return (
-    <div className="flex h-full bg-stage text-foreground">
+    <div className="flex h-full bg-stage p-3 text-foreground">
       <Sidebar
         manifest={manifest}
         device={device}
