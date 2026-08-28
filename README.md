@@ -1,4 +1,4 @@
-# Goldie: App Store screenshot generator for coding agents
+# Goldie: App Store screenshot generator for coding agents (and humans)
 
 goldie makes App Store screenshots and app preview videos for an iOS app.
 [argent](https://github.com/software-mansion/argent) replays flows on a
@@ -50,7 +50,7 @@ H.264 preview, per locale. Previews must run 15 to 30 seconds.
 
 ## Design
 
-<img width="1580" height="844" alt="Screenshot 2026-08-28 at 1 58 06 PM" src="https://github.com/user-attachments/assets/ba5a22af-2b7f-4544-9bef-5b9ccc5c789f" />
+https://github.com/user-attachments/assets/d6171a90-8fc1-437b-a574-5a8547068a3c
 
 The studio switches backgrounds, templates, bezel, fonts and per-tile copy,
 and saves to `goldie.design.json` so the CLI renders the same thing. The
