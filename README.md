@@ -12,20 +12,15 @@ Multiplatform apps.
 
 ## Install
 
+You need macOS with iOS simulators, Node 20 or newer and ffmpeg.
+
+Install the CLI:
+
 ```
 npm i -g goldie
-brew install ffmpeg
 ```
 
-Requires macOS with Xcode simulators and Node 20 or newer.
-
-## Use with a coding agent
-
-Install the skill, then ask from your app repo: "create App Store screenshots
-using goldie". The agent explores the app, writes the flows and config, and
-opens the studio. Follow-ups such as "use a dark background" edit the same
-files. The skill works with Claude Code, Cursor, Codex and any other harness
-that supports the skills format.
+Add the skill to your coding agent:
 
 ```
 npx skills add kacperkapusciak/goldie            # Cursor, Codex, any agent
@@ -33,6 +28,20 @@ npx skills add kacperkapusciak/goldie            # Cursor, Codex, any agent
 /plugin marketplace add kacperkapusciak/goldie   # Claude Code
 /plugin install goldie@goldie
 ```
+
+The skill works with any agent that supports the skills format.
+
+## Use with a coding agent
+
+Ask from your app repo:
+
+```
+create App Store screenshots using goldie
+```
+
+The agent explores the app, writes the flows and config, and
+opens the studio. Follow-ups such as `use a dark background` edit the same
+files. 
 
 ## Use by hand
 
