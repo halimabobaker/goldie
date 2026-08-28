@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { capture } from "./capture.ts";
@@ -30,6 +31,7 @@ goldie - App Store screenshots and previews, driven by argent
   goldie manifest   Write out/store.json for the studio app
   goldie studio     Serve the studio at http://localhost:4321 (--port <n>, --no-open)
   goldie all        capture -> frame -> preview -> manifest -> verify
+  goldie version    Print the installed goldie version (-v, --version)
 
 Options
   --config <path>   Config file (default ./goldie.config.ts)
@@ -53,6 +55,11 @@ async function main() {
 
   if (!command || command === "help" || command === "--help") {
     console.log(USAGE);
+    return 0;
+  }
+
+  if (command === "version" || command === "-v" || command === "--version") {
+    console.log(packageVersion());
     return 0;
   }
 
@@ -129,6 +136,13 @@ async function main() {
       console.error(`Unknown command "${command}"\n${USAGE}`);
       return 1;
   }
+}
+
+// Works from both src/cli.ts and the bundled dist/cli.js: package.json is one
+// directory up from either.
+function packageVersion(): string {
+  const pkg = new URL("../package.json", import.meta.url);
+  return JSON.parse(readFileSync(pkg, "utf8")).version;
 }
 
 async function runCapture(cfg: LoadedConfig, devices: DeviceKey[]) {
