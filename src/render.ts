@@ -1,11 +1,25 @@
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
-import { type CanvasGradient, createCanvas, loadImage, type SKRSContext2D } from "@napi-rs/canvas";
+import {
+  type Canvas,
+  type CanvasGradient,
+  createCanvas,
+  type Image,
+  loadImage,
+  type SKRSContext2D,
+} from "@napi-rs/canvas";
 import type { CaptureManifest } from "./capture.ts";
-import { framePath, isPreview, isScreenshot, type LoadedConfig } from "./config.ts";
+import {
+  type Decoration,
+  framePath,
+  isPreview,
+  type LoadedConfig,
+  resolvedScenes,
+  type Theme,
+} from "./config.ts";
 import { exec, execOrThrow } from "./exec.ts";
 import { registerFonts } from "./fonts.ts";
-import { layout } from "./frame.ts";
+import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
 
 async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<CaptureManifest> {
@@ -18,138 +32,268 @@ async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<Ca
 }
 
 /**
- * Composites each raw screenshot into the bezel on the theme background with
- * the scene copy above it. Drawn with a 2D canvas: the geometry comes from
- * frame.ts and the type sizes mirror the studio's ScreenshotScene, so the
- * export is what the browser showed.
+ * Composites each raw screenshot into its layout on the theme background:
+ * copy, decorations, then the device(s), bezel on top. Drawn with a 2D
+ * canvas from the geometry compose() returns, the same call the studio's
+ * ScreenshotScene makes, so the export is what the browser showed. A
+ * panorama layout draws once at span × width and is sliced into store-sized
+ * tiles.
  */
 export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string) {
   const spec = DEVICES[deviceKey];
   const manifest = await readManifest(cfg, deviceKey);
   const outDir = join(cfg.outDir, "screenshots", spec.label, locale);
   await mkdir(outDir, { recursive: true });
-  const bezel = await loadImage(framePath(cfg));
+  // A layout change renumbers the files; stale ones would otherwise be exported.
+  for (const name of await readdir(outDir)) {
+    if (name.endsWith(".png")) await rm(join(outDir, name), { force: true });
+  }
+  const bezel = cfg.theme.screenOnly ? null : await loadImage(framePath(cfg));
   registerFonts();
 
-  const { width, height } = spec.screenshot;
-  const copyHeight = height * cfg.theme.copyHeightRatio;
-  const { frame, screen } = layout(
-    { width, height },
-    cfg.theme.deviceWidthRatio,
-    copyHeight,
-    height * 0.03,
-  );
+  const tile = spec.screenshot;
+  const findShot = (sceneId: string) => {
+    const shot = manifest.screenshots.find((s) => s.sceneId === sceneId);
+    if (!shot)
+      throw new Error(`Scene "${sceneId}" is in the config but not in the capture manifest.`);
+    return shot;
+  };
 
-  const scenes = cfg.scenes.filter(isScreenshot);
-  return Promise.all(
-    scenes.map(async (scene, index) => {
-      const shot = manifest.screenshots.find((s) => s.sceneId === scene.id);
-      if (!shot)
-        throw new Error(`Scene "${scene.id}" is in the config but not in the capture manifest.`);
+  // Output numbers count tiles, so a panorama takes two consecutive slots.
+  let slot = 0;
+  const jobs = resolvedScenes(cfg).map((r) => {
+    const first = slot;
+    slot += r.layout.span;
+    return { ...r, first };
+  });
+
+  const files = await Promise.all(
+    jobs.map(async ({ scene, layout, secondScene, first }) => {
       console.log(`  frame ${scene.id}`);
+      const c = compose(layout, tile, cfg.theme, { screenOnly: cfg.theme.screenOnly });
 
-      const canvas = createCanvas(width, height);
+      const canvas = createCanvas(c.width, c.height);
       const ctx = canvas.getContext("2d");
-      ctx.fillStyle = paint(ctx, scene.background ?? cfg.theme.background, width, height);
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = paint(ctx, scene.background ?? cfg.theme.background, c.width, c.height);
+      ctx.fillRect(0, 0, c.width, c.height);
 
-      // Copy block: headline, then the subhead, centred inside the copy area.
-      const padX = width * 0.09;
-      let y = height * 0.055;
-      y = drawText(ctx, {
-        text: pick(scene.headline, locale, scene.id, "headline"),
-        font: `700 ${width * 0.082}px ${cfg.theme.fontFamily}`,
-        color: cfg.theme.headlineColor,
-        lineHeight: 1.08,
-        letterSpacing: -width * 0.0016,
-        x: width / 2,
-        y,
-        maxWidth: width - 2 * padX,
-      });
-      if (scene.subhead) {
-        drawText(ctx, {
-          text: pick(scene.subhead, locale, scene.id, "subhead"),
-          font: `400 ${width * 0.038}px ${cfg.theme.fontFamily}`,
-          color: cfg.theme.subheadColor,
-          lineHeight: 1.3,
-          letterSpacing: 0,
-          x: width / 2,
-          y: y + height * 0.014,
-          maxWidth: width - 2 * padX,
+      if (c.copy) {
+        drawCopy(ctx, c.copy, tile, cfg.theme, {
+          headline: pick(scene.headline, locale, scene.id, "headline"),
+          subhead: scene.subhead ? pick(scene.subhead, locale, scene.id, "subhead") : undefined,
         });
       }
 
-      // Screen first, bezel on top: the bezel's cutout is transparent.
-      const capture = await loadImage(shot.file);
-      ctx.save();
-      ctx.beginPath();
-      ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.borderRadius);
-      ctx.clip();
-      const scale = Math.max(screen.width / capture.width, screen.height / capture.height);
-      const w = capture.width * scale;
-      const h = capture.height * scale;
-      ctx.drawImage(
-        capture,
-        screen.left + (screen.width - w) / 2,
-        screen.top + (screen.height - h) / 2,
-        w,
-        h,
+      await drawDecorations(
+        ctx,
+        cfg,
+        [...(cfg.theme.decorations ?? []), ...(scene.decorations ?? [])],
+        c,
+        tile,
+        locale,
+        scene.id,
       );
-      ctx.restore();
-      ctx.drawImage(bezel, frame.left, frame.top, frame.width, frame.height);
 
-      // App Store rejects screenshots carrying an alpha channel, and the canvas
-      // always encodes RGBA, so ffmpeg strips it on the way out.
-      const raw = join(outDir, `.${scene.id}.rgba.png`);
-      await writeFile(raw, await canvas.encode("png"));
-      const final = join(outDir, `${String(index + 1).padStart(2, "0")}-${scene.id}.png`);
-      await execOrThrow("ffmpeg", [
-        "-y",
-        "-loglevel",
-        "error",
-        "-i",
-        raw,
-        "-pix_fmt",
-        SCREENSHOT_PIXEL_FORMAT,
-        final,
-      ]);
-      await rm(raw, { force: true });
-      return final;
+      for (const device of c.devices) {
+        const sceneId = device.capture === "secondary" ? secondScene! : scene.id;
+        const capture = await loadImage(findShot(sceneId).file);
+        drawDevice(ctx, device, capture, bezel, tile);
+      }
+
+      const out: string[] = [];
+      for (let i = 0; i < layout.span; i++) {
+        const slice = createCanvas(tile.width, tile.height);
+        slice.getContext("2d").drawImage(canvas, -i * tile.width, 0);
+        const suffix = layout.span > 1 ? `-${i + 1}` : "";
+        const name = `${String(first + i + 1).padStart(2, "0")}-${scene.id}${suffix}.png`;
+        out.push(await writePng(slice, outDir, name));
+      }
+      return out;
     }),
   );
+  return files.flat();
 }
 
 /**
- * Word-wraps and draws centred text starting at `y`. Returns the y below the
- * last line.
+ * Writes the canvas as an opaque PNG. App Store rejects screenshots carrying
+ * an alpha channel, and the canvas always encodes RGBA, so ffmpeg strips it
+ * on the way out.
  */
-function drawText(
-  ctx: SKRSContext2D,
-  o: {
-    text: string;
-    font: string;
-    color: string;
-    lineHeight: number;
-    letterSpacing: number;
-    x: number;
-    y: number;
-    maxWidth: number;
-  },
-): number {
-  ctx.font = o.font;
-  ctx.fillStyle = o.color;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.letterSpacing = `${o.letterSpacing}px`;
-  const size = Number(o.font.match(/(\d+(?:\.\d+)?)px/)?.[1]);
-  const step = size * o.lineHeight;
+async function writePng(canvas: Canvas, outDir: string, name: string): Promise<string> {
+  const raw = join(outDir, `.${name}.rgba.png`);
+  await writeFile(raw, await canvas.encode("png"));
+  const final = join(outDir, name);
+  await execOrThrow("ffmpeg", [
+    "-y",
+    "-loglevel",
+    "error",
+    "-i",
+    raw,
+    "-pix_fmt",
+    SCREENSHOT_PIXEL_FORMAT,
+    final,
+  ]);
+  await rm(raw, { force: true });
+  return final;
+}
 
+/** The headline and subhead, top-anchored or bottom-anchored per the composition. */
+function drawCopy(
+  ctx: SKRSContext2D,
+  copy: NonNullable<Composition["copy"]>,
+  tile: { width: number; height: number },
+  theme: Theme,
+  text: { headline: string; subhead?: string },
+) {
+  const blocks = [
+    {
+      text: text.headline,
+      font: `${TYPE.headlineWeight} ${tile.width * TYPE.headlineSize}px ${theme.fontFamily}`,
+      color: theme.headlineColor,
+      lineHeight: TYPE.headlineLineHeight,
+      letterSpacing: tile.width * TYPE.headlineTracking,
+    },
+    ...(text.subhead
+      ? [
+          {
+            text: text.subhead,
+            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize}px ${theme.fontFamily}`,
+            color: theme.subheadColor,
+            lineHeight: TYPE.subheadLineHeight,
+            letterSpacing: 0,
+          },
+        ]
+      : []),
+  ].map((b) => ({ ...b, lines: wrapLines(ctx, b.text, b.font, b.letterSpacing, copy.maxWidth) }));
+
+  const gap = tile.height * TYPE.gap;
+  const total =
+    blocks.reduce((sum, b) => sum + b.lines.length * fontSize(b.font) * b.lineHeight, 0) +
+    gap * (blocks.length - 1);
+  let y = copy.position === "top" ? copy.y : copy.y - total;
+  for (const b of blocks) {
+    y = drawLines(ctx, { ...b, x: copy.x, y, align: copy.align });
+    y += gap;
+  }
+}
+
+/**
+ * One device: the capture cover-fitted and clipped to the rounded screen,
+ * then the bezel over it (its cutout is transparent), or a drop shadow
+ * under the bare screen when there is no bezel. Rotated about its centre.
+ */
+function drawDevice(
+  ctx: SKRSContext2D,
+  device: Composition["devices"][number],
+  capture: Image,
+  bezel: Image | null,
+  tile: { width: number },
+) {
+  const { frame, screen } = device;
+  ctx.save();
+  if (device.rotate) {
+    const cx = frame.left + frame.width / 2;
+    const cy = frame.top + frame.height / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate((device.rotate * Math.PI) / 180);
+    ctx.translate(-cx, -cy);
+  }
+  if (!bezel) {
+    ctx.save();
+    ctx.shadowColor = SCREEN_SHADOW.color;
+    ctx.shadowBlur = tile.width * SCREEN_SHADOW.blur;
+    ctx.shadowOffsetY = tile.width * SCREEN_SHADOW.offsetY;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.radius);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.radius);
+  ctx.clip();
+  const scale = Math.max(screen.width / capture.width, screen.height / capture.height);
+  const w = capture.width * scale;
+  const h = capture.height * scale;
+  ctx.drawImage(
+    capture,
+    screen.left + (screen.width - w) / 2,
+    screen.top + (screen.height - h) / 2,
+    w,
+    h,
+  );
+  ctx.restore();
+  if (bezel) ctx.drawImage(bezel, frame.left, frame.top, frame.width, frame.height);
+  ctx.restore();
+}
+
+/** Badge pills in the composition's corners and image layers placed by tile fractions. */
+async function drawDecorations(
+  ctx: SKRSContext2D,
+  cfg: LoadedConfig,
+  decorations: Decoration[],
+  c: Composition,
+  tile: { width: number; height: number },
+  locale: string,
+  sceneId: string,
+) {
+  for (const d of decorations) {
+    if (d.kind === "badge") {
+      const text = pick(d.text, locale, sceneId, "badge");
+      const font = `${BADGE.weight} ${tile.width * BADGE.fontSize}px ${cfg.theme.fontFamily}`;
+      ctx.font = font;
+      ctx.letterSpacing = "0px";
+      const size = fontSize(font);
+      const w = ctx.measureText(text).width + 2 * tile.width * BADGE.padX;
+      const h = size * 1.2 + 2 * tile.width * BADGE.padY;
+      const inset = Math.min(tile.width, tile.height) * BADGE.inset;
+      const left = d.position.endsWith("left") ? inset : c.width - inset - w;
+      const top = d.position.startsWith("top") ? inset : c.height - inset - h;
+      ctx.fillStyle = d.background ?? "rgba(255, 255, 255, 0.85)";
+      ctx.beginPath();
+      ctx.roundRect(left, top, w, h, h / 2);
+      ctx.fill();
+      ctx.fillStyle = d.color ?? cfg.theme.headlineColor;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, left + w / 2, top + h / 2);
+    } else {
+      const image = await loadImage(resolve(cfg.root, d.src));
+      const w = tile.width * d.width;
+      const h = (w * image.height) / image.width;
+      const left = tile.width * d.x;
+      const top = tile.height * d.y;
+      ctx.save();
+      if (d.rotate) {
+        ctx.translate(left + w / 2, top + h / 2);
+        ctx.rotate((d.rotate * Math.PI) / 180);
+        ctx.translate(-(left + w / 2), -(top + h / 2));
+      }
+      ctx.drawImage(image, left, top, w, h);
+      ctx.restore();
+    }
+  }
+}
+
+const fontSize = (font: string) => Number(font.match(/(\d+(?:\.\d+)?)px/)?.[1]);
+
+/** Word-wraps text to `maxWidth`, honouring explicit newlines. */
+export function wrapLines(
+  ctx: SKRSContext2D,
+  text: string,
+  font: string,
+  letterSpacing: number,
+  maxWidth: number,
+): string[] {
+  ctx.font = font;
+  ctx.letterSpacing = `${letterSpacing}px`;
   const lines: string[] = [];
-  for (const paragraph of o.text.split("\n")) {
+  for (const paragraph of text.split("\n")) {
     let line = "";
     for (const word of paragraph.split(/\s+/).filter(Boolean)) {
       const next = line ? `${line} ${word}` : word;
-      if (line && ctx.measureText(next).width > o.maxWidth) {
+      if (line && ctx.measureText(next).width > maxWidth) {
         lines.push(line);
         line = word;
       } else {
@@ -158,9 +302,32 @@ function drawText(
     }
     lines.push(line);
   }
+  return lines;
+}
 
+/** Draws wrapped lines from `y` down. Returns the y below the last line. */
+function drawLines(
+  ctx: SKRSContext2D,
+  o: {
+    lines: string[];
+    font: string;
+    color: string;
+    lineHeight: number;
+    letterSpacing: number;
+    x: number;
+    y: number;
+    align: "left" | "center";
+  },
+): number {
+  ctx.font = o.font;
+  ctx.fillStyle = o.color;
+  ctx.textAlign = o.align;
+  ctx.textBaseline = "top";
+  ctx.letterSpacing = `${o.letterSpacing}px`;
+  const size = fontSize(o.font);
+  const step = size * o.lineHeight;
   let y = o.y;
-  for (const line of lines) {
+  for (const line of o.lines) {
     // Centre the glyph box inside the line box, as CSS line-height does.
     ctx.fillText(line, o.x, y + (step - size) / 2);
     y += step;

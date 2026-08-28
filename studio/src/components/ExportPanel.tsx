@@ -1,22 +1,30 @@
 import { Loader2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CUSTOM_TEMPLATE } from "../App";
 
 /**
  * The one place the goldie CLI runs: Export re-renders the screenshots and
  * the preview video from the raw captures with the current design, zips them,
  * and hands the browser the zip. Streams the CLI log while it runs (the video
- * render takes a while). Dev server only - a static build has no /api/export.
+ * render takes a while). Served by `goldie studio` and the Vite dev server alike (src/studio-server.ts).
  */
 export function ExportPanel({
   background,
   frame,
   font,
+  template,
+  layout,
+  screenOnly,
 }: {
   background: string;
   frame: string;
   /** A --font key, or undefined to keep the config's font. */
   font: string | undefined;
+  /** A built-in template key, "" for none, or the custom sentinel (left to the sidecar/config). */
+  template: string;
+  layout: string;
+  screenOnly: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string | null>(null);
@@ -36,7 +44,14 @@ export function ExportPanel({
       const res = await fetch("/api/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ background, frame, font }),
+        body: JSON.stringify({
+          background,
+          frame,
+          font,
+          template: template === CUSTOM_TEMPLATE ? undefined : template || "none",
+          layout,
+          screenOnly,
+        }),
       });
       if (!res.ok || !res.body) {
         setLog(`${res.status}: ${await res.text()}`);

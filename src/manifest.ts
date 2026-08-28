@@ -1,7 +1,8 @@
 import { copyFile, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import type { CaptureManifest } from "./capture.ts";
 import {
+  type Decoration,
   FRAME_VARIANTS,
   framePath,
   isPreview,
@@ -12,6 +13,7 @@ import {
 } from "./config.ts";
 import { execOrThrow } from "./exec.ts";
 import { FONTS, fontFilePath } from "./fonts.ts";
+import { LAYOUTS, TEMPLATES } from "./layouts.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /**
@@ -63,10 +65,23 @@ export type StoreManifest = {
       fallback: string;
       faces: Array<{ weight: number; url: string }>;
     }>;
+    /** Every layout the studio can pick, in menu order. */
+    layouts: Array<{ key: string; label: string; description: string; span: number }>;
+    templates: Array<{ key: string; label: string; description: string; sequence: string[] }>;
+    /** The theme's template: a built-in key, null for none, or the config's custom sequence. */
+    template: string | string[] | null;
+    /** The theme's default layout key. */
+    layout: string;
+    screenOnly: boolean;
+    /** Theme-level decorations; image `src` values are urls under out/web. */
+    decorations: Decoration[];
     scenes: Array<{
       id: string;
       headline: Record<string, string>;
       subhead?: Record<string, string>;
+      layout?: string;
+      secondScene?: string;
+      decorations?: Decoration[];
     }>;
     preview: {
       sceneId: string;
@@ -133,6 +148,30 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
     fonts.push({ key, family: font.family, fallback: font.fallback, faces });
   }
 
+  // Decoration images, copied so the browser can draw the same layers.
+  const decorDir = join(webDir, "decor");
+  await mkdir(decorDir, { recursive: true });
+  const webDecorations = async (list: Decoration[] | undefined) =>
+    Promise.all(
+      (list ?? []).map(async (d) => {
+        if (d.kind !== "image") return d;
+        const name = basename(d.src);
+        await copyFile(resolve(cfg.root, d.src), join(decorDir, name));
+        return { ...d, src: `decor/${name}` };
+      }),
+    );
+  const scenes: StoreManifest["design"]["scenes"] = [];
+  for (const scene of cfg.scenes.filter(isScreenshot)) {
+    scenes.push({
+      id: scene.id,
+      headline: scene.headline,
+      ...(scene.subhead ? { subhead: scene.subhead } : {}),
+      ...(scene.layout ? { layout: scene.layout } : {}),
+      ...(scene.secondScene ? { secondScene: scene.secondScene } : {}),
+      ...(scene.decorations ? { decorations: await webDecorations(scene.decorations) } : {}),
+    });
+  }
+
   const assets: StoreManifest["assets"] = {};
   for (const deviceKey of cfg.devices) {
     assets[deviceKey] = {};
@@ -179,11 +218,18 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
       frameVariants: [...FRAME_VARIANTS],
       customFrameUrl: custom,
       fonts,
-      scenes: cfg.scenes.filter(isScreenshot).map(({ id, headline, subhead }) => ({
-        id,
-        headline,
-        ...(subhead ? { subhead } : {}),
+      layouts: Object.values(LAYOUTS).map(({ key, label, description, span }) => ({
+        key,
+        label,
+        description,
+        span,
       })),
+      templates: Object.values(TEMPLATES),
+      template: cfg.theme.template ?? null,
+      layout: cfg.theme.layout ?? "classic",
+      screenOnly: cfg.theme.screenOnly ?? false,
+      decorations: await webDecorations(cfg.theme.decorations),
+      scenes,
       preview: previewScene
         ? {
             sceneId: previewScene.id,

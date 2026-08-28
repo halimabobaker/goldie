@@ -38,6 +38,16 @@ const config: GoldieConfig = {
     fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
     copyHeightRatio: 0.24,
     deviceWidthRatio: 0.84,
+    // The strip's rhythm: a built-in template ("editorial", "showcase",
+    // "magazine", "storyboard", "dynamic") or your own sequence of layout keys
+    // applied to the scenes in order. Layout keys, from src/layouts.ts:
+    // "classic", "copy-below", "hero", "offset", "tilt", "tilt-right", "duo",
+    // "duo-tilt", "panorama", "panorama-duo", "minimal".
+    // template: ["panorama", "hero", "tilt", "minimal"],
+    // Layout for every scene the template leaves out (or all, with no template).
+    layout: "classic",
+    // screenOnly: true,  bare screens with a shadow, no bezel
+    // decorations: [{ kind: "badge", text: { "en-US": "Editors' Choice" }, position: "top-right" }],
   },
 
   // Renders the realistic store page around the assets in the studio.
@@ -63,6 +73,9 @@ const config: GoldieConfig = {
       flow: "store-01-home",
       headline: { "en-US": "Benefit-led headline" },
       subhead: { "en-US": "One short sentence expanding the headline." },
+      // layout: "hero",             this tile only
+      // secondScene: "detail",      the second screen of a duo / panorama-duo layout
+      // decorations: [{ kind: "image", src: "art/sticker.png", x: 0.7, y: 0.1, width: 0.25 }],
     },
 
     // One preview scene. Each segment is its own flow and clip; the clips are

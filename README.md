@@ -18,6 +18,17 @@ goldie manifest   Write out/web/store.json for the studio
 goldie all        capture -> frame -> preview -> manifest -> verify
 ```
 
+## Install
+
+```
+npm i -g goldie        # or run it ad hoc:  npx goldie@0 doctor
+brew install ffmpeg
+```
+
+The package bundles [argent](https://github.com/software-mansion/argent) as a
+dependency, so nothing else is needed. macOS with Xcode and its simulators is
+required. Node 20 or newer; no bun.
+
 All app-specific data is in `goldie.config.ts`, which is untracked; copy
 `goldie.config.example.ts` to start. Set `GOLDIE_CONFIG` to use a config in
 another directory, for example in the app's own repo; `out/` is created next to
@@ -32,12 +43,19 @@ runnable on its own. Set `flowsDir` in the config to keep them somewhere else.
 
 The repo has a Claude skill in `skills/goldie/`. The skill explores the app on
 a simulator, writes the flows into `.argent/flows` and the config, runs the
-pipeline, and opens the
-studio. Install it with the [skills.sh](https://skills.sh) CLI:
+pipeline with `npx goldie@0`, and opens the studio. Install it one of two ways:
 
 ```
-npx skills add kacperkapusciak/goldie
+npx skills add kacperkapusciak/goldie       # skills.sh CLI, any agent
 ```
+
+```
+/plugin marketplace add kacperkapusciak/goldie   # Claude Code
+/plugin install goldie@goldie
+```
+
+The Claude Code plugin also registers argent's MCP server (`.mcp.json`), which
+the skill uses to explore the app and repair flows.
 
 Then ask Claude from the app repo: "create App Store screenshots using goldie".
 
@@ -61,7 +79,8 @@ that reflects it.
 ## Preview the assets
 
 ```
-bun run studio      # http://localhost:4321
+goldie studio       # http://localhost:4321
+bun run studio      # same, from a source checkout with hot reload
 ```
 
 The studio is a React + Vite + Tailwind app. It shows the assets as the
@@ -69,19 +88,38 @@ five-tile strip from the store page: the video first, then the screenshots.
 Each tile is the exact file for upload. The sidebar lists each file with its
 size and weight. A row turns red when the file breaks Apple's rules.
 
-The dev server can also regenerate assets. The Generate panel has 16 background
-presets, a gradient picker, a color picker, a CSS field, a bezel dropdown, and
-a font dropdown.
-When you change a value, the server runs the render pipeline again on the
-existing raw captures and streams the log. The video is behind an "Include
-video" toggle because it takes some minutes. The CLI has the same overrides:
-`--background`, `--frame` and `--font`. They apply to one run only.
-`goldie.config.ts` stays the source of truth.
+The Design panel has 16 background presets, a gradient picker, a template
+dropdown (or a single layout), a bezel or screen-only switch, and a font
+dropdown. Every change is
+composited in the browser at once. Clicking a tile opens it full size, where
+the headline and subhead are editable and a dropdown overrides that one
+tile's layout. These choices are saved to `goldie.design.json` next to the
+config, so the CLI renders the same thing. Export runs the render pipeline on
+the existing raw captures, streams the log, and downloads an upload-ready
+zip. The CLI has one-run overrides too: `--background`, `--frame`, `--font`,
+`--template`, `--layout` and `--screen-only`. `goldie.config.ts` stays the
+source of truth.
 
 The app reads `out/web/`: the manifest and symlinks to the finished
-assets. `out/raw` and `out/stage` are outside it. Because of this,
-`bun run studio:build` makes a small deployable `studio/dist`. The static
-build has no API. It is a viewer only.
+assets. `out/raw` and `out/stage` are outside it. `goldie studio` serves the
+prebuilt `studio/dist` from the package together with `out/web` and the
+design/export API (`src/studio-server.ts`); the Vite dev server mounts the
+same handlers.
+
+## Develop and release
+
+```
+bun install
+bun run check       # biome
+bun test
+bun run build       # studio/dist + dist/ (CLI and library, Node target)
+npm pack --dry-run  # what ships
+```
+
+Pushing a `v*` tag publishes to npm through `.github/workflows/release.yml`
+(needs an `NPM_TOKEN` repository secret). The skill pins the CLI by major
+(`npx goldie@0`), so skill edits and CLI releases ship independently until
+the next major.
 
 ## How a run works
 
@@ -161,6 +199,63 @@ frame: { variant: "17-pro-blue" }   // or "17-pro-silver", "17-pro-orange"
 All bundled variants share the cutout geometry in `src/frame.ts`. Custom
 bezel art works too: `frame: { image: "path/to/bezel.png" }`, relative to the
 config file. Measure its geometry from its alpha channel.
+
+## Choose a template and layouts
+
+A template is the rhythm of the whole strip: the layout each screenshot takes
+in store order, so one strip can open on a panorama, follow with a hero and a
+tilted device, and rest on a minimal tile. Pick a built-in or write your own
+sequence (it repeats when shorter than the scene list):
+
+```ts
+theme: { template: "editorial" }
+theme: { template: ["panorama", "hero", "tilt", "minimal", "duo"] }
+```
+
+| Template | Sequence |
+|---|---|
+| `editorial` | panorama, hero, offset, minimal, tilt |
+| `showcase` | hero, tilt, duo, tilt-right, minimal |
+| `magazine` | offset, copy-below, tilt-right, hero, minimal |
+| `storyboard` | panorama-duo, copy-below, hero, minimal, tilt |
+| `dynamic` | tilt, duo-tilt, panorama, minimal, tilt-right |
+
+Without a template, `theme.layout` applies to every tile; `scenes[].layout`
+overrides one tile either way. The layouts, from `src/layouts.ts`:
+
+| Layout | What it does |
+|---|---|
+| `classic` | Centred copy above a centred device (the default) |
+| `copy-below` | Device hanging from the top edge, copy underneath |
+| `hero` | Copy on top, a large device running off the bottom |
+| `offset` | Left-aligned copy, device pushed to the bottom right |
+| `tilt` | Copy on top, device tilted and running off the bottom |
+| `tilt-right` | Left-aligned copy, device tilted into the bottom right corner |
+| `duo` | Two screens, a smaller one behind on the left |
+| `duo-tilt` | Two tilted screens stepping down diagonally |
+| `panorama` | Two tiles: copy on the left, one big tilted device across the seam |
+| `panorama-duo` | Two tiles sharing one headline, a screen on each side |
+| `minimal` | No copy, just a large centred device |
+
+The two-screen layouts show a second capture: the next scene's by default,
+or `secondScene: "issue-detail"` to pick one. A panorama is rendered once at double width
+and sliced into two store-sized PNGs, numbered consecutively; it counts as
+two of Apple's ten screenshots.
+
+`theme.screenOnly: true` drops the bezel and shows the bare screen with a
+soft shadow, in every layout. Decorations add layers between the background
+and the device, on the theme (every tile) or on one scene:
+
+```ts
+decorations: [
+  { kind: "badge", text: { "en-US": "Editors' Choice" }, position: "top-right" },
+  { kind: "image", src: "art/sticker.png", x: 0.7, y: 0.1, width: 0.25, rotate: 12 },
+]
+```
+
+The geometry and type sizes live only in `src/layouts.ts`; the CLI and the
+studio both compose from it, so a tile in the browser is the exported PNG.
+`bun test` checks that `classic` still matches the original composition.
 
 ## Choose a font for the copy
 

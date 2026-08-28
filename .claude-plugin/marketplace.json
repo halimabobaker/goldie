@@ -1,0 +1,12 @@
+{
+  "name": "goldie",
+  "owner": { "name": "Kacper Kapuściak" },
+  "plugins": [
+    {
+      "name": "goldie",
+      "source": "./",
+      "description": "App Store screenshots and app preview videos for an iOS app, driven by argent flows on a simulator.",
+      "category": "productivity"
+    }
+  ]
+}

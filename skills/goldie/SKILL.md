@@ -45,17 +45,20 @@ the store listing, and the preview story. Nothing lives only in your head or
 in the studio, so a user who says "make it darker" or "swap the search
 screenshot for settings" is asking for an edit to those files.
 
-## Step 0: Locate or install goldie
+## Step 0: Make sure goldie runs
 
-goldie is a standalone toolkit repo. Resolve it in this order:
+goldie is an npm package that bundles the CLI, the studio and a pinned argent
+driver. Nothing needs cloning; `npx` fetches it on first use:
 
-1. `$GOLDIE_ROOT` if the env var is set
-2. `~/Dev/goldie`
-3. Clone it: `git clone https://github.com/kacperkapusciak/goldie.git ~/Dev/goldie && cd ~/Dev/goldie && bun install`
+```bash
+npx -y goldie@0 help
+```
 
-It needs `bun` on the PATH. Everything below refers to this checkout as
-`$GOLDIE`. All app-specific files live in the app repo; goldie's own checkout
-stays untouched.
+Every command below is `npx -y goldie@0 <cmd>`, referred to as `goldie`.
+It needs Node 20+ and `ffmpeg` on the PATH (`brew install ffmpeg`). If
+`$GOLDIE_ROOT` is set, the user is working from a source checkout; run
+`bun $GOLDIE_ROOT/src/cli.ts <cmd>` instead. All app-specific files live in
+the app repo.
 
 ## Step 1: Gather app facts
 
@@ -132,7 +135,7 @@ Shell state does not persist between your Bash calls, so prefix every goldie
 command with it:
 
 ```bash
-GOLDIE_CONFIG=<app-repo>/goldie/goldie.config.ts bun $GOLDIE/src/cli.ts doctor
+GOLDIE_CONFIG=<app-repo>/goldie/goldie.config.ts npx -y goldie@0 doctor
 ```
 
 Fix everything doctor flags before capturing. The usual findings and their
@@ -142,9 +145,9 @@ argent video watermark flag, a screenshot scale override, and a Debug build.
 Then capture and render the stills (skip the video for now, it takes minutes):
 
 ```bash
-GOLDIE_CONFIG=... bun $GOLDIE/src/cli.ts capture
-GOLDIE_CONFIG=... bun $GOLDIE/src/cli.ts frame
-GOLDIE_CONFIG=... bun $GOLDIE/src/cli.ts manifest
+GOLDIE_CONFIG=... npx -y goldie@0 capture
+GOLDIE_CONFIG=... npx -y goldie@0 frame
+GOLDIE_CONFIG=... npx -y goldie@0 manifest
 ```
 
 `capture` replays every flow, including the preview segments, so the raw clips
@@ -161,29 +164,29 @@ what to re-resolve.
 
 ## Step 5: Open the studio, render the video lazily
 
-Start the studio in the background from the goldie checkout. It needs
-`GOLDIE_CONFIG` too, so it serves the app repo's `out/`:
+Start the studio in the background. It needs `GOLDIE_CONFIG` too, so it
+serves the app repo's `out/`:
 
 ```bash
-cd $GOLDIE && GOLDIE_CONFIG=... bun run studio   # background task; serves http://localhost:4321
+GOLDIE_CONFIG=... npx -y goldie@0 studio --no-open   # background task; serves http://localhost:4321
 ```
 
 Tell the user it is up at http://localhost:4321. Then, also in the background,
 render the preview video so it appears on reload once done:
 
 ```bash
-GOLDIE_CONFIG=... bun $GOLDIE/src/cli.ts preview && GOLDIE_CONFIG=... bun $GOLDIE/src/cli.ts manifest
+GOLDIE_CONFIG=... npx -y goldie@0 preview && GOLDIE_CONFIG=... npx -y goldie@0 manifest
 ```
 
 If `preview` refuses because the total is outside 15 to 30 seconds, adjust
 segment pacing (`wait:` steps and `holdSeconds`) and re-capture only what
 changed.
 
-Finish with `bun $GOLDIE/src/cli.ts verify` and report the result: which
+Finish with `GOLDIE_CONFIG=... npx -y goldie@0 verify` and report the result: which
 assets exist, where they are, and whether they pass Apple's rules. The
 studio's sidebar shows the same checks; a red row is a rule violation. The
-Generate panel lets the user restyle backgrounds and bezels without you, and
-Export downloads an upload-ready zip.
+Design panel lets the user restyle backgrounds, layouts, bezels and fonts
+without you, and Export downloads an upload-ready zip.
 
 ## Iterating on an existing setup
 
@@ -196,7 +199,11 @@ the next prompt can build on it.
 |---|---|---|
 | Different headline, subhead or store copy | `scenes[].headline` / `subhead`, `store.*` | `frame`, `manifest` |
 | A new look: background, text colors, font, sizing | `theme.*`, or `scenes[].background` for one tile | `frame`, `manifest` |
-| A different bezel | `frame.variant` | `frame`, `manifest` |
+| A different bezel, or no bezel | `frame.variant`, `theme.screenOnly` | `frame`, `manifest` |
+| A varied strip: panorama opener, hero, tilted tiles, a breather | `theme.template`: a built-in key or a sequence of layout keys (see `references/config.md`) | `frame`, `manifest` |
+| A different layout for every tile, or one | `theme.layout`, or `scenes[].layout` for one tile | `frame`, `manifest` |
+| Two screens in one tile, or a two-tile panorama | `scenes[].layout: "duo"` / `"panorama-duo"` plus `secondScene`, or `"panorama"` | `frame`, `manifest` |
+| A badge, sticker or logo on the tiles | `theme.decorations` (all) or `scenes[].decorations` (one) | `frame`, `manifest` |
 | Dark mode captures | `appearance: "dark"` (and text colors to match) | `capture`, `frame`, `manifest` |
 | Reorder, drop or add a screenshot | `scenes[]`; a new scene needs a new flow in `.argent/flows` | `capture` (new flows), `frame`, `manifest` |
 | Show a different state on one screen | the scene's flow YAML | `capture`, `frame`, `manifest` |
@@ -209,11 +216,13 @@ stale files under `out/raw/` before running it. `frame` and `manifest` take
 seconds, so run them freely. The studio at http://localhost:4321 picks up
 changes on reload; start it again with `GOLDIE_CONFIG` if it is not running.
 
-The studio's Generate panel and the CLI's `--background` / `--frame` /
-`--font` flags are one-run overrides that never touch the config. If the user
-tried a preset there and wants to keep it, copy the CSS, variant or font stack
-into `theme.background`, `frame.variant` or `theme.fontFamily` so the next
-re-prompt starts from what they see. The
+The studio's Design panel writes to `goldie.design.json` next to the config,
+and the CLI's `--background` / `--frame` / `--font` / `--template` /
+`--layout` / `--screen-only` flags are one-run overrides; neither touches the
+config. If the user tried something there and wants to keep it, copy the
+value into `theme.background`, `frame.variant`, `theme.fontFamily`,
+`theme.template`, `theme.layout` or `scenes[].layout` so the next re-prompt
+starts from what they see. The
 current on-disk values are also in `goldie/out/web/store.json` under `design`,
 which is the fastest way to confirm what the studio is showing right now.
 

@@ -11,6 +11,9 @@ import {
   saveDesign,
 } from "./manifest";
 
+/** Sentinel for the config's own layout sequence, which the studio can show but not edit. */
+export const CUSTOM_TEMPLATE = "__custom__";
+
 /** How long the design must sit still before it is written to disk. */
 const SAVE_DEBOUNCE_MS = 500;
 
@@ -37,7 +40,8 @@ export function App() {
  * The CLI only runs when the sidebar's Export button asks for the final files.
  *
  * Two things survive a reload. The design choices (background, frame, font,
- * copy edited in the lightbox)
+ * layout and screen-only mode, per-scene layout overrides, copy edited in the
+ * lightbox, the order tiles were dragged into)
  * are written to goldie.design.json next to the config, debounced, so the
  * CLI picks them up too. The view choices (device, locale, dark) only matter
  * here and live in localStorage under the app's name. Either falls back to
@@ -68,6 +72,42 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   );
   const [fontFamily, setFontFamily] = useState(saved.fontFamily ?? design.theme.fontFamily);
   const [copy, setCopy] = useState<Record<string, SceneCopy>>(saved.copy ?? {});
+  const knownLayout = (key: string | undefined) =>
+    key && design.layouts.some((l) => l.key === key) ? key : undefined;
+  const [layout, setLayout] = useState(knownLayout(saved.layout) ?? design.layout);
+  // A built-in template key, "" for none, or CUSTOM_TEMPLATE for the config's own sequence.
+  const [template, setTemplate] = useState(() => {
+    if (saved.template !== undefined && design.templates.some((t) => t.key === saved.template))
+      return saved.template;
+    if (saved.template === "") return "";
+    if (Array.isArray(design.template)) return CUSTOM_TEMPLATE;
+    return design.template ?? "";
+  });
+  const [screenOnly, setScreenOnly] = useState(saved.screenOnly ?? design.screenOnly);
+  // Per-scene layout overrides; a scene absent here follows the default above.
+  const [sceneLayouts, setSceneLayouts] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const scene of design.scenes) {
+      const key = knownLayout(saved.sceneLayouts?.[scene.id]);
+      if (key) out[scene.id] = key;
+    }
+    return out;
+  });
+  const setSceneLayout = (sceneId: string, key: string | undefined) =>
+    setSceneLayouts((prev) => {
+      const next = { ...prev };
+      if (key) next[sceneId] = key;
+      else delete next[sceneId];
+      return next;
+    });
+  // Screenshot scene ids as arranged by dragging tiles; empty means the
+  // config's order. Ids no longer in the config are dropped, new ones follow.
+  const [order, setOrder] = useState<string[]>(() => {
+    const ids = design.scenes.map((s) => s.id);
+    if (!saved.order) return [];
+    const kept = saved.order.filter((id) => ids.includes(id));
+    return [...kept, ...ids.filter((id) => !kept.includes(id))];
+  });
   const setSceneCopy = (sceneId: string, field: "headline" | "subhead", text: string) =>
     setCopy((prev) => ({
       ...prev,
@@ -95,13 +135,18 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         frame: frame || undefined,
         fontFamily,
         copy: Object.keys(copy).length > 0 ? copy : undefined,
+        order: order.length > 0 ? order : undefined,
+        template: template === CUSTOM_TEMPLATE ? undefined : template,
+        layout,
+        screenOnly,
+        sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
       }).then(
         () => setSaveError(null),
         (e: Error) => setSaveError(e.message),
       );
     }, SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [background, frame, fontFamily, copy]);
+  }, [background, frame, fontFamily, copy, order, template, layout, screenOnly, sceneLayouts]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -131,12 +176,18 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         background={background}
         frame={frame}
         fontFamily={fontFamily}
+        template={template}
+        layout={layout}
+        screenOnly={screenOnly}
         onDevice={setDevice}
         onLocale={setLocale}
         onDark={setDark}
         onBackground={setBackground}
         onFrame={setFrame}
         onFontFamily={setFontFamily}
+        onTemplate={setTemplate}
+        onLayout={setLayout}
+        onScreenOnly={setScreenOnly}
       />
 
       <main className="relative grid flex-1 place-items-center overflow-auto p-10">
@@ -157,6 +208,17 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
               fontFamily={fontFamily}
               copy={copy}
               onCopy={setSceneCopy}
+              order={order}
+              onReorder={setOrder}
+              template={
+                template === CUSTOM_TEMPLATE && Array.isArray(design.template)
+                  ? design.template
+                  : template
+              }
+              layout={layout}
+              screenOnly={screenOnly}
+              sceneLayouts={sceneLayouts}
+              onSceneLayout={setSceneLayout}
             />
           </div>
         ) : (

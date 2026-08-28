@@ -11,3 +11,6 @@ goldie.design.json
 
 # Generated assets: screenshots, previews, staged frames, export bundles
 out/
+
+# npm build output
+dist

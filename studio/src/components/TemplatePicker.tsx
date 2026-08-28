@@ -29,7 +29,7 @@ export function TemplatePicker({
   onChange: (v: string) => void;
 }) {
   const options: Array<{ key: string; label: string; sequence: string[] }> = [
-    { key: "", label: "None", sequence: Array(5).fill(layout) },
+    { key: "", label: "Basic", sequence: Array(5).fill(layout) },
     ...design.templates
       .filter((t) => t.sequence.length > 0)
       .map((t) => ({ key: t.key, label: t.label, sequence: t.sequence })),

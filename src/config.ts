@@ -1,6 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  isLayoutKey,
+  isTemplateKey,
+  LAYOUT_KEYS,
+  type LayoutKey,
+  needsSecondCapture,
+  resolveScenes,
+  TEMPLATE_KEYS,
+  type TemplateChoice,
+} from "./layouts.ts";
 import type { DeviceKey } from "./specs.ts";
 
 /** Bezel art bundled in goldie's own assets/, one PNG per variant. */
@@ -20,7 +30,42 @@ export type ScreenshotScene = {
   subhead?: Record<Locale, string>;
   /** Overrides the theme background for this scene. */
   background?: string;
+  /** Overrides theme.layout for this scene; a key from src/layouts.ts. */
+  layout?: LayoutKey;
+  /**
+   * Id of another screenshot scene whose capture fills the second device in
+   * the duo and panorama-duo layouts. Defaults to the next scene.
+   */
+  secondScene?: string;
+  /** Badge and image layers drawn over the background, under the device, in addition to theme.decorations. */
+  decorations?: Decoration[];
 };
+
+/**
+ * A layer drawn over the background and under the device. A badge is a text
+ * pill in a corner; an image is any PNG placed by fractions of the tile.
+ */
+export type Decoration =
+  | {
+      kind: "badge";
+      text: Record<Locale, string>;
+      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+      /** Pill fill and text color; default to the headline color on a translucent white. */
+      background?: string;
+      color?: string;
+    }
+  | {
+      kind: "image";
+      /** PNG relative to the config file. */
+      src: string;
+      /** Left and top as fractions of the tile width and height. */
+      x: number;
+      y: number;
+      /** Width as a fraction of the tile width; the height keeps the image's aspect. */
+      width: number;
+      /** Degrees, clockwise, around the image centre. */
+      rotate?: number;
+    };
 
 /**
  * The app preview video, built from short segments.
@@ -55,6 +100,18 @@ export type Theme = {
   copyHeightRatio: number;
   /** Fraction of the screenshot width the device bezel occupies. */
   deviceWidthRatio: number;
+  /**
+   * The strip's rhythm: a built-in template key from src/layouts.ts, or a
+   * custom sequence of layout keys applied to the scenes in order (repeating
+   * when shorter). Scenes with their own `layout` are left alone.
+   */
+  template?: TemplateChoice;
+  /** Layout for scenes the template does not cover; a key from src/layouts.ts. Defaults to "classic". */
+  layout?: LayoutKey;
+  /** Drop the bezel and show the bare screen with a soft shadow. */
+  screenOnly?: boolean;
+  /** Decoration layers added to every screenshot scene. */
+  decorations?: Decoration[];
 };
 
 /**
@@ -108,6 +165,8 @@ export type GoldieConfig = {
 export type LoadedConfig = GoldieConfig & {
   /** Directory the config file lives in; every relative path resolves against it. */
   root: string;
+  /** Absolute path of the config file itself. */
+  configPath: string;
   /** Absolute directory the scene flows resolve against. */
   flowsDir: string;
   outDir: string;
@@ -124,20 +183,41 @@ export function defaultConfigPath(): string {
     : resolve(process.cwd(), "goldie.config.ts");
 }
 
+/**
+ * The config is TypeScript. Bun and Node >= 22.18 import it natively; older
+ * Node lacks type stripping, so fall back to jiti, which transpiles on the fly.
+ */
+async function importConfig(path: string): Promise<any> {
+  try {
+    return await import(pathToFileURL(path).href);
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (
+      code !== "ERR_UNKNOWN_FILE_EXTENSION" &&
+      code !== "ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING"
+    )
+      throw err;
+    const { createJiti } = await import("jiti");
+    return createJiti(import.meta.url).import(path);
+  }
+}
+
 export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConfig> {
   if (!existsSync(path)) throw new Error(`No config at ${path}`);
-  const mod = await import(path);
+  const mod = await importConfig(path);
   const cfg: GoldieConfig = mod.default ?? mod.config;
   if (!cfg) throw new Error(`${path} has no default export`);
   const root = dirname(path);
   const loaded: LoadedConfig = {
     ...cfg,
     root,
+    configPath: path,
     flowsDir: cfg.flowsDir ? resolve(root, cfg.flowsDir) : resolve(cfg.appRoot, ".argent/flows"),
     outDir: resolve(root, "out"),
   };
   applyDesign(loaded, readDesign(path));
   framePath(loaded); // fail at load time on a bad variant or missing bezel PNG
+  validateLayouts(loaded);
   return loaded;
 }
 
@@ -153,6 +233,15 @@ export type DesignOverrides = {
   fontFamily?: string;
   /** Copy edited in the studio, per screenshot scene id, then locale. */
   copy?: Record<string, SceneCopy>;
+  /** Screenshot scene ids in the order the studio arranged them. */
+  order?: string[];
+  /** A built-in template key; "" means none (the layout below applies to every scene). */
+  template?: string;
+  /** Default layout for scenes the template does not cover. */
+  layout?: LayoutKey;
+  screenOnly?: boolean;
+  /** Layout overrides per screenshot scene id. */
+  sceneLayouts?: Record<string, LayoutKey>;
 };
 
 export type SceneCopy = {
@@ -201,6 +290,84 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
       if (copy.subhead) scene.subhead = { ...scene.subhead, ...copy.subhead };
     }
   }
+  if (design.order) cfg.scenes = reorderScenes(cfg.scenes, design.order);
+  if (design.template !== undefined) {
+    cfg.theme.template = design.template ? checkedTemplate(design.template) : undefined;
+  }
+  if (design.layout) cfg.theme.layout = checkedLayout(design.layout);
+  if (design.screenOnly !== undefined) cfg.theme.screenOnly = design.screenOnly;
+  if (design.sceneLayouts) {
+    for (const scene of cfg.scenes) {
+      const key = design.sceneLayouts[scene.id];
+      if (isScreenshot(scene) && key) scene.layout = checkedLayout(key);
+    }
+  }
+}
+
+function checkedLayout(key: string): LayoutKey {
+  if (!isLayoutKey(key)) {
+    throw new Error(`Unknown layout "${key}". Available: ${LAYOUT_KEYS.join(", ")}`);
+  }
+  return key;
+}
+
+function checkedTemplate(key: string): TemplateChoice {
+  if (!isTemplateKey(key)) {
+    throw new Error(`Unknown template "${key}". Available: ${TEMPLATE_KEYS.join(", ")}`);
+  }
+  return key;
+}
+
+/** Every screenshot scene with the layout and second capture it renders with, in strip order. */
+export function resolvedScenes(cfg: LoadedConfig) {
+  return resolveScenes(cfg.scenes.filter(isScreenshot), {
+    template: cfg.theme.template,
+    layout: cfg.theme.layout,
+  });
+}
+
+/**
+ * Fails early on a layout or template key the config misspelt, or a
+ * two-device layout whose scene has no usable second capture.
+ */
+export function validateLayouts(cfg: LoadedConfig): void {
+  if (cfg.theme.layout) checkedLayout(cfg.theme.layout);
+  const template = cfg.theme.template;
+  if (Array.isArray(template)) for (const key of template) checkedLayout(key);
+  else if (template) checkedTemplate(template);
+  const shots = cfg.scenes.filter(isScreenshot);
+  for (const { scene, layout, secondScene } of resolvedScenes(cfg)) {
+    if (scene.layout) checkedLayout(scene.layout);
+    if (!needsSecondCapture(layout)) continue;
+    if (!secondScene) {
+      throw new Error(
+        `Scene "${scene.id}" uses the "${layout.key}" layout, which shows two screens, but there is no other scene to borrow from.`,
+      );
+    }
+    if (secondScene === scene.id || !shots.some((s) => s.id === secondScene)) {
+      throw new Error(
+        `Scene "${scene.id}": secondScene "${secondScene}" is not another screenshot scene.`,
+      );
+    }
+  }
+}
+
+/**
+ * Puts the screenshot scenes in the saved order. Ids missing from the order
+ * (scenes added to the config since) keep their config position relative to
+ * each other and follow the ordered ones; unknown ids are ignored. Other
+ * scenes (the preview) stay where they are.
+ */
+export function reorderScenes(scenes: Scene[], order: string[]): Scene[] {
+  const shots = scenes.filter(isScreenshot);
+  const rank = new Map(order.map((id, i) => [id, i]));
+  const sorted = [...shots].sort((a, b) => {
+    const ra = rank.get(a.id) ?? Number.POSITIVE_INFINITY;
+    const rb = rank.get(b.id) ?? Number.POSITIVE_INFINITY;
+    return ra === rb ? shots.indexOf(a) - shots.indexOf(b) : ra - rb;
+  });
+  let i = 0;
+  return scenes.map((s) => (isScreenshot(s) ? sorted[i++]! : s));
 }
 
 /**

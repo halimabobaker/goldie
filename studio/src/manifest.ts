@@ -11,6 +11,20 @@ export type Theme = {
   deviceWidthRatio: number;
 };
 
+/** Mirrors Decoration in src/config.ts; image `src` values are urls under out/web. */
+export type Decoration =
+  | {
+      kind: "badge";
+      text: Record<string, string>;
+      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+      background?: string;
+      color?: string;
+    }
+  | { kind: "image"; src: string; x: number; y: number; width: number; rotate?: number };
+
+export type LayoutEntry = { key: string; label: string; description: string; span: number };
+export type TemplateEntry = { key: string; label: string; description: string; sequence: string[] };
+
 export type DeviceEntry = {
   key: string;
   label: string;
@@ -23,6 +37,9 @@ export type DesignScene = {
   id: string;
   headline: Record<string, string>;
   subhead?: Record<string, string>;
+  layout?: string;
+  secondScene?: string;
+  decorations?: Decoration[];
 };
 
 export type BundledFont = {
@@ -45,6 +62,14 @@ export type Design = {
   customFrameUrl: string | null;
   /** Bundled typefaces with the @font-face sources to declare. */
   fonts: BundledFont[];
+  layouts: LayoutEntry[];
+  templates: TemplateEntry[];
+  /** The theme's template: a built-in key, null for none, or the config's custom sequence. */
+  template: string | string[] | null;
+  /** The theme's default layout key. */
+  layout: string;
+  screenOnly: boolean;
+  decorations: Decoration[];
   scenes: DesignScene[];
   preview: {
     sceneId: string;
@@ -76,14 +101,12 @@ export async function loadManifest(): Promise<StoreManifest> {
   const res = await fetch("/store.json", { cache: "no-store" });
   if (!res.ok) {
     throw new Error(
-      "No out/store.json. Generate the assets first:  bun src/cli.ts all  (or  bun src/cli.ts manifest)",
+      "No out/store.json. Generate the assets first:  goldie all  (or  goldie manifest)",
     );
   }
   const manifest: StoreManifest = await res.json();
-  if (!manifest.design?.fonts) {
-    throw new Error(
-      "out/store.json predates browser-side composition. Re-run: bun src/cli.ts manifest",
-    );
+  if (!manifest.design?.fonts || !manifest.design.layouts) {
+    throw new Error("out/store.json predates browser-side composition. Re-run: goldie manifest");
   }
 
   // Raw captures keep their names across a re-capture, so the manifest's
@@ -97,13 +120,22 @@ export async function loadManifest(): Promise<StoreManifest> {
   return manifest;
 }
 
-/** The design choices saved on disk next to the config; see /api/design in vite.config.ts. */
+/** The design choices saved on disk next to the config; see src/studio-server.ts. */
 export type SavedDesign = {
   background?: string;
   frame?: string;
   fontFamily?: string;
   /** Copy edited in the lightbox, per screenshot scene id, then locale. */
   copy?: Record<string, SceneCopy>;
+  /** Screenshot scene ids in the order the tiles were dragged into. */
+  order?: string[];
+  /** A built-in template key, or "" for none. */
+  template?: string;
+  /** Default layout key for scenes the template does not cover. */
+  layout?: string;
+  screenOnly?: boolean;
+  /** Layout overrides per screenshot scene id. */
+  sceneLayouts?: Record<string, string>;
 };
 
 export type SceneCopy = {

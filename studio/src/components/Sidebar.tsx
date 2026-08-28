@@ -22,12 +22,18 @@ export function Sidebar({
   background,
   frame,
   fontFamily,
+  template,
+  layout,
+  screenOnly,
   onDevice,
   onLocale,
   onDark,
   onBackground,
   onFrame,
   onFontFamily,
+  onTemplate,
+  onLayout,
+  onScreenOnly,
 }: {
   manifest: StoreManifest;
   device: string;
@@ -36,12 +42,18 @@ export function Sidebar({
   background: string;
   frame: string;
   fontFamily: string;
+  template: string;
+  layout: string;
+  screenOnly: boolean;
   onDevice: (v: string) => void;
   onLocale: (v: string) => void;
   onDark: (v: boolean) => void;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
   onFontFamily: (v: string) => void;
+  onTemplate: (v: string) => void;
+  onLayout: (v: string) => void;
+  onScreenOnly: (v: boolean) => void;
 }) {
   return (
     <aside className="flex w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r bg-sidebar p-6 text-sidebar-foreground">
@@ -65,9 +77,15 @@ export function Sidebar({
         background={background}
         frame={frame}
         fontFamily={fontFamily}
+        template={template}
+        layout={layout}
+        screenOnly={screenOnly}
         onBackground={onBackground}
         onFrame={onFrame}
         onFontFamily={onFontFamily}
+        onTemplate={onTemplate}
+        onLayout={onLayout}
+        onScreenOnly={onScreenOnly}
       />
 
       {manifest.devices.length > 1 ? (
@@ -96,6 +114,9 @@ export function Sidebar({
           background={background}
           frame={frame}
           font={fontKey(manifest.design, fontFamily)}
+          template={template}
+          layout={layout}
+          screenOnly={screenOnly}
         />
       </div>
     </aside>

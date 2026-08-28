@@ -35,8 +35,12 @@ const config: GoldieConfig = {
     // The system stack, or a bundled typeface named first: "Merriweather",
     // "DM Mono", "Lato", "DM Sans", "Montserrat" (files in $GOLDIE/assets/fonts).
     fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
-    copyHeightRatio: 0.24,       // fraction of frame height reserved for copy
-    deviceWidthRatio: 0.84,      // fraction of frame width the bezel occupies
+    copyHeightRatio: 0.24,       // fraction of frame height reserved for copy (classic layout)
+    deviceWidthRatio: 0.84,      // fraction of frame width the bezel occupies (classic layout)
+    template: "editorial",       // the strip's rhythm, see "Templates and layouts" below
+    layout: "classic",           // layout for scenes the template leaves out
+    // screenOnly: true,         // bare screens with a soft shadow instead of a bezel
+    // decorations: [...],       // layers on every tile, see "Decorations" below
   },
 
   // Renders the realistic store page around the assets in the studio.
@@ -64,19 +68,22 @@ const config: GoldieConfig = {
       flow: "store-01-issues",
       headline: { "en-US": "Every issue, one list" },
       subhead: { "en-US": "Grouped by status, sorted the way your team works." },
-      // background: "..."  optional per-scene override
+      // background: "..."     optional per-scene override
+      // layout: "hero",        optional per-scene layout
+      // secondScene: "detail", the second screen for duo / panorama-duo
+      // decorations: [...],    layers on this tile only
     },
     // ... 3 or 4 more screenshot scenes ...
 
-    // Exactly one preview scene. Each segment is its own flow and clip; its
-    // caption stays on screen for the clip's measured duration.
+    // Exactly one preview scene. Each segment is its own flow and clip; the
+    // clips are joined as recorded (Apple allows no bezel or captions).
     {
       kind: "preview",
       id: "preview",
       segments: [
-        { id: "open",    flow: "store-preview-01-open",    caption: { "en-US": "Your work, in one place" } },
-        { id: "compose", flow: "store-preview-02-compose", caption: { "en-US": "File an issue in seconds" } },
-        { id: "create",  flow: "store-preview-03-create",  caption: { "en-US": "Straight back to the list" }, holdSeconds: 2 },
+        { id: "open",    flow: "store-preview-01-open" },
+        { id: "compose", flow: "store-preview-02-compose" },
+        { id: "create",  flow: "store-preview-03-create", holdSeconds: 2 },
       ],
     },
   ],
@@ -88,14 +95,67 @@ export default config;
 Import the type with an absolute path to the goldie checkout, since the config
 lives in the app repo.
 
+## Templates and layouts
+
+`theme.template` sets the layout of each screenshot in store order, so a
+strip can mix a panorama, a hero, a tilted device and a breather. Use a
+built-in key or a custom array of layout keys; a sequence shorter than the
+scene list repeats. Built-ins:
+
+| Template | Sequence |
+|---|---|
+| `editorial` | panorama, hero, offset, minimal, tilt |
+| `showcase` | hero, tilt, duo, tilt-right, minimal |
+| `magazine` | offset, copy-below, tilt-right, hero, minimal |
+| `storyboard` | panorama-duo, copy-below, hero, minimal, tilt |
+| `dynamic` | tilt, duo-tilt, panorama, minimal, tilt-right |
+
+Precedence per scene: `scenes[].layout`, then the template's entry, then
+`theme.layout`, then `classic`. Default to `editorial` for a 4 to 5 scene
+strip, or write a sequence when the user describes the rhythm they want
+("start with a panorama, then tilt the rest"). Layout keys, from
+`$GOLDIE/src/layouts.ts`:
+
+| Key | Composition | Needs |
+|---|---|---|
+| `classic` | centred copy above a centred device (default) | |
+| `copy-below` | device hanging from the top, copy underneath | |
+| `hero` | copy on top, large device running off the bottom | |
+| `offset` | left-aligned copy, device pushed bottom right | |
+| `tilt` | copy on top, device tilted off the bottom | |
+| `tilt-right` | left-aligned copy, device tilted into the bottom right | |
+| `duo` | two screens, the second smaller and behind | a second capture |
+| `duo-tilt` | two tilted screens stepping diagonally | a second capture |
+| `panorama` | two tiles, copy left, one big tilted device across the seam | takes 2 of the 10 slots |
+| `panorama-duo` | two tiles sharing a headline, a screen each side | a second capture, 2 slots |
+| `minimal` | no copy, a large centred device | |
+
+Two-screen layouts borrow the next scene's capture unless the scene sets
+`secondScene`. Choosing: lead with `classic`, `hero` or a `panorama` pair,
+since the first two tiles are what most visitors see. Use `duo` with
+`secondScene` for a list-and-detail pair. Keep tilted tiles to one in a row, and `minimal` for a
+breather mid-strip. Panorama copy must read on the left tile alone.
+`theme.screenOnly: true` removes the bezel in every layout.
+
+## Decorations
+
+Layers drawn over the background and under the device. `theme.decorations`
+applies to every tile, `scenes[].decorations` to one; both stack.
+
+```ts
+{ kind: "badge", text: { "en-US": "Editors' Choice" }, position: "top-right",
+  background: "#0E1B2A", color: "#FFFFFF" }          // colors optional
+{ kind: "image", src: "art/sticker.png",              // relative to the config
+  x: 0.7, y: 0.1, width: 0.25, rotate: 12 }           // fractions of the tile
+```
+
 ## Writing the copy
 
 - **Headlines**: 2 to 5 words, benefit-led, sentence case. Name what the user
   gets ("Find anything, fast"), never what the UI is ("Search screen").
 - **Subheads**: one short sentence expanding the headline. Optional; drop it
   when the headline stands alone.
-- **Preview captions**: together they narrate one continuous story in order.
-  Keep each under about 6 words; viewers get seconds per caption.
+- **Badges**: two or three words at most ("Editors' Choice", "New in 2.0").
 - Match the app's existing voice (website, onboarding text) when the repo
   shows one.
 

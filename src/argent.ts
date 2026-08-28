@@ -5,14 +5,21 @@ import { exec, execOrThrow, parseJsonTail } from "./exec.ts";
  * Everything here shells out to the CLI, which is the supported surface.
  */
 
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 
-/** Prefer the pinned devDependency over whatever happens to be on PATH. */
+/** Prefer the pinned dependency over whatever happens to be on PATH. */
 function resolveBin(): string {
   if (process.env.GOLDIE_ARGENT_BIN) return process.env.GOLDIE_ARGENT_BIN;
-  const local = resolve(import.meta.dirname, "..", "node_modules", ".bin", "argent");
-  return existsSync(local) ? local : "argent";
+  try {
+    const require = createRequire(import.meta.url);
+    const pkgPath = require.resolve("@swmansion/argent/package.json");
+    const pkg = require(pkgPath) as { bin?: Record<string, string> };
+    if (pkg.bin?.argent) return join(dirname(pkgPath), pkg.bin.argent);
+  } catch {
+    /* not installed next to goldie; fall back to PATH */
+  }
+  return "argent";
 }
 
 const BIN = resolveBin();
