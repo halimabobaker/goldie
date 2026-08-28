@@ -1,5 +1,7 @@
 # goldie
 
+<img width="1580" height="844" alt="Screenshot 2026-08-28 at 1 58 06 PM" src="https://github.com/user-attachments/assets/ba5a22af-2b7f-4544-9bef-5b9ccc5c789f" />
+
 goldie makes App Store screenshots and app preview videos for an iOS app.
 [argent](https://github.com/software-mansion/argent) replays YAML flows on a
 simulator and captures raw images and recordings.
