@@ -400,8 +400,9 @@ export function compose(
 
   // Copy composes in the reference column, but a device shrunk into it leaves
   // dead margins on a wider tile. Devices there keep their real-tile size and
-  // slide DOWN until they clear the copy band, bleeding off the bottom the way
-  // dense 9:16 frames do; reference-aspect tiles skip both adjustments. A
+  // slide until they clear the copy band — down past a top band, up past a
+  // bottom one — bleeding off the far edge the way dense 9:16 frames do;
+  // reference-aspect tiles skip both adjustments. A
   // copy-less layout (minimal) shows the whole device, so real-tile sizing
   // would push it past the tile's top and bottom; it keeps the reference size.
   const squat = tile !== tileIn;
@@ -422,6 +423,9 @@ export function compose(
       top = height * d.y - (art.height * scale) / 2;
       if (squat && copy && spec.copy.position === "top") {
         top = Math.max(top, copy.box.height + height * 0.015);
+      }
+      if (squat && copy && spec.copy.position === "bottom") {
+        top = Math.min(top, copy.box.top - height * 0.015 - art.height * scale);
       }
     }
     return {
