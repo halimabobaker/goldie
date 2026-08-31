@@ -19,6 +19,7 @@ import {
 } from "./config.ts";
 import { exec, execOrThrow } from "./exec.ts";
 import { registerFonts } from "./fonts.ts";
+import { FRAME } from "./frame.ts";
 import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
 
@@ -48,7 +49,20 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
   for (const name of await readdir(outDir)) {
     if (name.endsWith(".png")) await rm(join(outDir, name), { force: true });
   }
-  const bezel = cfg.theme.screenOnly ? null : await loadImage(framePath(cfg));
+  // A device spec can force screen-only rendering, or a drawn generic bezel
+  // when no bezel art is bundled for it (the android device). Config-supplied
+  // frame art with its own geometry (cfg.android.frame) outranks the drawn one.
+  const customFrame = spec.platform === "android" ? cfg.android?.frame : undefined;
+  const screenOnly = Boolean(cfg.theme.screenOnly || spec.screenOnly);
+  const drawnBezel = !screenOnly && !customFrame && spec.drawnBezel === true;
+  const bezel = screenOnly
+    ? null
+    : customFrame
+      ? await loadImage(resolve(cfg.root, customFrame.image))
+      : drawnBezel
+        ? null
+        : await loadImage(framePath(cfg));
+  const geom = customFrame ?? FRAME;
   registerFonts();
 
   const tile = spec.screenshot;
@@ -70,7 +84,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
   const files = await Promise.all(
     jobs.map(async ({ scene, layout, secondScene, first }) => {
       console.log(`  frame ${scene.id}`);
-      const c = compose(layout, tile, cfg.theme, { screenOnly: cfg.theme.screenOnly });
+      const c = compose(layout, tile, cfg.theme, { screenOnly, geom });
 
       const canvas = createCanvas(c.width, c.height);
       const ctx = canvas.getContext("2d");
@@ -82,7 +96,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       }
 
       if (c.copy) {
-        drawCopy(ctx, c.copy, tile, cfg.theme, {
+        drawCopy(ctx, c.copy, { width: c.designWidth, height: c.height }, cfg.theme, {
           headline: pick(scene.headline, locale, scene.id, "headline"),
           subhead: scene.subhead ? pick(scene.subhead, locale, scene.id, "subhead") : undefined,
         });
@@ -101,7 +115,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       for (const device of c.devices) {
         const sceneId = device.capture === "secondary" ? secondScene! : scene.id;
         const capture = await loadImage(findShot(sceneId).file);
-        drawDevice(ctx, device, capture, bezel, tile);
+        drawDevice(ctx, device, capture, bezel, { width: c.designWidth }, drawnBezel);
       }
 
       const out: string[] = [];
@@ -202,6 +216,7 @@ function drawDevice(
   capture: Image,
   bezel: Image | null,
   tile: { width: number },
+  drawnBezel = false,
 ) {
   const { frame, screen } = device;
   ctx.save();
@@ -212,7 +227,29 @@ function drawDevice(
     ctx.rotate((device.rotate * Math.PI) / 180);
     ctx.translate(-cx, -cy);
   }
-  if (!bezel) {
+  if (!bezel && drawnBezel) {
+    // Generic drawn bezel: the bezel PNGs' frame box filled as a dark ring
+    // around the screen cutout, so android tiles share the iOS proportions
+    // without shipping licensed device art. Filled the same black Android
+    // bakes into a screenshot's corner mask and punch-hole, so those merge
+    // into the bezel instead of reading as a second misaligned ring.
+    const ring = screen.left - frame.left;
+    const radius = screen.radius + ring;
+    ctx.save();
+    ctx.shadowColor = SCREEN_SHADOW.color;
+    ctx.shadowBlur = tile.width * SCREEN_SHADOW.blur;
+    ctx.shadowOffsetY = tile.width * SCREEN_SHADOW.offsetY;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.roundRect(frame.left, frame.top, frame.width, frame.height, radius);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+    ctx.lineWidth = Math.max(1, ring * 0.12);
+    ctx.beginPath();
+    ctx.roundRect(frame.left, frame.top, frame.width, frame.height, radius);
+    ctx.stroke();
+  } else if (!bezel) {
     ctx.save();
     ctx.shadowColor = SCREEN_SHADOW.color;
     ctx.shadowBlur = tile.width * SCREEN_SHADOW.blur;
@@ -447,6 +484,10 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   const spec = DEVICES[deviceKey];
   const scene = cfg.scenes.find(isPreview);
   if (!scene) return null;
+  if (!spec.preview) {
+    console.log(`  ${deviceKey} has no preview pipeline (Google Play takes a YouTube link)`);
+    return null;
+  }
   const manifest = await readManifest(cfg, deviceKey);
   if (!manifest.preview)
     throw new Error("No preview clips in the capture manifest. Run: goldie capture");
@@ -560,6 +601,10 @@ export async function verify(
     );
   }
 
+  // A null preview spec means no video pipeline; screenshots are the whole story.
+  const previewSpec = spec.preview;
+  if (!previewSpec) return ok;
+
   const previewDir = join(cfg.outDir, "previews", spec.label, locale);
   const videos = await exec("sh", ["-c", `ls ${previewDir}/*.mp4 2>/dev/null`], { quiet: true });
   for (const file of videos.stdout.split("\n").filter(Boolean)) {
@@ -582,8 +627,8 @@ export async function verify(
     const checks: Array<[string, boolean, string]> = [
       [
         "size",
-        video?.width === spec.preview.width && video?.height === spec.preview.height,
-        `${video?.width}x${video?.height} (need ${spec.preview.width}x${spec.preview.height})`,
+        video?.width === previewSpec.width && video?.height === previewSpec.height,
+        `${video?.width}x${video?.height} (need ${previewSpec.width}x${previewSpec.height})`,
       ],
       ["codec", video?.codec_name === "h264", String(video?.codec_name)],
       ["fps", fps <= PREVIEW.fps + 0.01, fps.toFixed(2)],
