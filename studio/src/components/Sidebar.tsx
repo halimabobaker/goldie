@@ -1,4 +1,4 @@
-import { MoonIcon, SunIcon } from "lucide-react";
+import { AppleIcon, type LucideIcon, MoonIcon, PlayIcon, SunIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,13 +9,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import type { Platform } from "../App";
 import type { StoreManifest } from "../manifest";
 import { DesignPanel } from "./DesignPanel";
 import { ExportPanel } from "./ExportPanel";
 
-const PLATFORM_LABELS = { ios: "App Store", android: "Google Play" } as const;
+/** The store pills, in display order. `devices` names the device families the store covers. */
+const PLATFORMS: Array<{ key: Platform; icon: LucideIcon; label: string; devices: string }> = [
+  { key: "ios", icon: AppleIcon, label: "App Store", devices: "iPhone & iPad" },
+  { key: "android", icon: PlayIcon, label: "Google Play", devices: "Android" },
+];
 
 /**
  * The left rail: the goldie wordmark with the appearance toggle, what the
@@ -87,16 +91,35 @@ export function Sidebar({
       <div className="sidebar-scroll flex-1 overflow-y-auto">
         {/* Both stores always show, so an iOS-only setup still surfaces that
             Google Play screenshots exist (and vice versa). */}
-        <div className="px-5 pt-4">
-          <Tabs value={platform} onValueChange={(p) => onPlatform(p as Platform)}>
-            <TabsList className="w-full">
-              {(Object.keys(PLATFORM_LABELS) as Platform[]).map((p) => (
-                <TabsTrigger key={p} value={p}>
-                  {PLATFORM_LABELS[p]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+        <div className="flex flex-col gap-2 px-5 pt-4">
+          {PLATFORMS.map(({ key, icon: Icon, label, devices }) => {
+            const active = platform === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onPlatform(key)}
+                aria-pressed={active}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
+                  active
+                    ? "border-border bg-muted text-foreground shadow-xs"
+                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4 shrink-0" aria-hidden />
+                <span>{label}</span>
+                <span
+                  className={cn(
+                    "ml-auto text-[11px] font-normal",
+                    active ? "text-muted-foreground" : "text-muted-foreground/70",
+                  )}
+                >
+                  {devices}
+                </span>
+              </button>
+            );
+          })}
         </div>
         {platformDevices.length > 1 || manifest.locales.length > 1 ? (
           <div className="flex flex-col gap-4 p-5">
