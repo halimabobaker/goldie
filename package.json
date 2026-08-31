@@ -32,6 +32,7 @@
   "files": [
     "dist/",
     "assets/17-pro-*.png",
+    "assets/ATTRIBUTION.md",
     "assets/fonts/",
     "studio/dist/",
     "skills/",
