@@ -1,6 +1,6 @@
 {
   "name": "goldie",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "App Store screenshots and app preview videos for an iOS app, driven by argent flows on a simulator.",
   "author": { "name": "Kacper Kapuściak" },
   "homepage": "https://github.com/kacperkapusciak/goldie",
