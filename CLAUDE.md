@@ -6,6 +6,16 @@
 - `main` holds released code only. To release: merge `develop` into `main`, tag the version, and publish the package from `main`.
 - The GitHub default branch must stay `main` so `npx skills` installs the released version. Set PR bases to `develop` explicitly.
 
+## Testing local changes in another app repo
+
+Instead of `npx -y goldie@0 <cmd>`, run the CLI from source (no build step):
+
+```bash
+GOLDIE_CONFIG=$PWD/goldie/goldie.config.ts bun <goldie-repo>/src/cli.ts <cmd>
+```
+
+If the studio changed, run `bun run build:studio` first. For pre-publish verification, `bun run build && npm pack` in the goldie repo, then `npx -y <goldie-repo>/goldie-<version>.tgz <cmd>` from the app repo.
+
 ## References
 
 - App Store screenshot specifications (required sizes per device, formats, limits):
