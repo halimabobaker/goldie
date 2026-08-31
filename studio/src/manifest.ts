@@ -25,6 +25,14 @@ export type Decoration =
 export type LayoutEntry = { key: string; label: string; description: string; span: number };
 export type TemplateEntry = { key: string; label: string; description: string; sequence: string[] };
 
+/** Mirrors FrameGeometry in src/layouts.ts: a bezel image's box and the screen cutout inside it. */
+export type FrameGeometry = {
+  width: number;
+  height: number;
+  screen: { x: number; y: number; width: number; height: number };
+  screenRadius: number;
+};
+
 /** null simulatorName / preview mark an android device; the strip fully renders only iOS today (multi-device UI is PR #1). */
 export type DeviceEntry = {
   key: string;
@@ -32,6 +40,8 @@ export type DeviceEntry = {
   simulatorName: string | null;
   screenshot: { width: number; height: number };
   preview: { width: number; height: number } | null;
+  /** Bezel art fixed to this device (android), null when the frame picker applies. */
+  frame: { url: string; geom: FrameGeometry } | null;
 };
 
 export type DesignScene = {

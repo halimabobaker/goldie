@@ -100,6 +100,7 @@ export function Sidebar({
         ) : null}
         <DesignPanel
           design={manifest.design}
+          deviceFrame={Boolean(manifest.devices.find((d) => d.key === device)?.frame)}
           background={background}
           frame={frame}
           fontFamily={fontFamily}

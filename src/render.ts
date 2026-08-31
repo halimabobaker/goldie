@@ -11,7 +11,7 @@ import {
 import type { CaptureManifest } from "./capture.ts";
 import {
   type Decoration,
-  framePath,
+  deviceFrame,
   isPreview,
   type LoadedConfig,
   resolvedScenes,
@@ -19,7 +19,6 @@ import {
 } from "./config.ts";
 import { exec, execOrThrow } from "./exec.ts";
 import { registerFonts } from "./fonts.ts";
-import { FRAME } from "./frame.ts";
 import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
 
@@ -49,20 +48,12 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
   for (const name of await readdir(outDir)) {
     if (name.endsWith(".png")) await rm(join(outDir, name), { force: true });
   }
-  // A device spec can force screen-only rendering, or a drawn generic bezel
-  // when no bezel art is bundled for it (the android device). Config-supplied
-  // frame art with its own geometry (cfg.android.frame) outranks the drawn one.
-  const customFrame = spec.platform === "android" ? cfg.android?.frame : undefined;
+  // Each device brings its own bezel art and geometry: the config's frame on
+  // iOS, the bundled (or config-supplied) Pixel art on android. A device spec
+  // can force screen-only rendering, which drops the bezel entirely.
+  const { image, geom } = deviceFrame(cfg, deviceKey);
   const screenOnly = Boolean(cfg.theme.screenOnly || spec.screenOnly);
-  const drawnBezel = !screenOnly && !customFrame && spec.drawnBezel === true;
-  const bezel = screenOnly
-    ? null
-    : customFrame
-      ? await loadImage(resolve(cfg.root, customFrame.image))
-      : drawnBezel
-        ? null
-        : await loadImage(framePath(cfg));
-  const geom = customFrame ?? FRAME;
+  const bezel = screenOnly ? null : await loadImage(image);
   registerFonts();
 
   const tile = spec.screenshot;
@@ -115,7 +106,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       for (const device of c.devices) {
         const sceneId = device.capture === "secondary" ? secondScene! : scene.id;
         const capture = await loadImage(findShot(sceneId).file);
-        drawDevice(ctx, device, capture, bezel, { width: c.designWidth }, drawnBezel);
+        drawDevice(ctx, device, capture, bezel, { width: c.designWidth });
       }
 
       const out: string[] = [];
@@ -216,7 +207,6 @@ function drawDevice(
   capture: Image,
   bezel: Image | null,
   tile: { width: number },
-  drawnBezel = false,
 ) {
   const { frame, screen } = device;
   ctx.save();
@@ -227,29 +217,7 @@ function drawDevice(
     ctx.rotate((device.rotate * Math.PI) / 180);
     ctx.translate(-cx, -cy);
   }
-  if (!bezel && drawnBezel) {
-    // Generic drawn bezel: the bezel PNGs' frame box filled as a dark ring
-    // around the screen cutout, so android tiles share the iOS proportions
-    // without shipping licensed device art. Filled the same black Android
-    // bakes into a screenshot's corner mask and punch-hole, so those merge
-    // into the bezel instead of reading as a second misaligned ring.
-    const ring = screen.left - frame.left;
-    const radius = screen.radius + ring;
-    ctx.save();
-    ctx.shadowColor = SCREEN_SHADOW.color;
-    ctx.shadowBlur = tile.width * SCREEN_SHADOW.blur;
-    ctx.shadowOffsetY = tile.width * SCREEN_SHADOW.offsetY;
-    ctx.fillStyle = "#000";
-    ctx.beginPath();
-    ctx.roundRect(frame.left, frame.top, frame.width, frame.height, radius);
-    ctx.fill();
-    ctx.restore();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
-    ctx.lineWidth = Math.max(1, ring * 0.12);
-    ctx.beginPath();
-    ctx.roundRect(frame.left, frame.top, frame.width, frame.height, radius);
-    ctx.stroke();
-  } else if (!bezel) {
+  if (!bezel) {
     ctx.save();
     ctx.shadowColor = SCREEN_SHADOW.color;
     ctx.shadowBlur = tile.width * SCREEN_SHADOW.blur;

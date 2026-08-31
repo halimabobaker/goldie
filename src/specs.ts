@@ -8,7 +8,7 @@
  *   is why `preview` is null on android devices.
  */
 
-export type DeviceKey = "iphone-6.9" | "android-phone";
+export type DeviceKey = "iphone-6.9" | "pixel-10-pro";
 
 export type DeviceSpec = {
   /** Human label used in output paths and logs. */
@@ -36,8 +36,6 @@ export type DeviceSpec = {
   preview: { width: number; height: number } | null;
   /** Render bare screens with the drop shadow instead of a bezel. */
   screenOnly?: true;
-  /** Render a drawn generic bezel: no licensed bezel art exists for this device. */
-  drawnBezel?: true;
 };
 
 export const DEVICES: Record<DeviceKey, DeviceSpec> = {
@@ -49,16 +47,15 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
     screenshot: { width: 1320, height: 2868 },
     preview: { width: 886, height: 1920 },
   },
-  // No bundled Pixel bezel art (device-art licensing), so android renders a
-  // drawn generic bezel regardless of the config's frame choice.
-  "android-phone": {
+  // Framed with the bundled Pixel 10 Pro art (src/frame.ts), not the config's
+  // frame variant, which is iPhone art with iPhone geometry.
+  "pixel-10-pro": {
     label: "play-phone",
     platform: "android",
     avdDeviceName: "pixel_10_pro",
     native: null,
     screenshot: { width: 1080, height: 1920 },
     preview: null,
-    drawnBezel: true,
   },
 };
 

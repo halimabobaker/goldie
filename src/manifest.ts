@@ -1,8 +1,9 @@
 import { copyFile, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import type { CaptureManifest } from "./capture.ts";
 import {
   type Decoration,
+  deviceFrame,
   FRAME_VARIANTS,
   framePath,
   isPreview,
@@ -13,7 +14,7 @@ import {
 } from "./config.ts";
 import { execOrThrow } from "./exec.ts";
 import { FONTS, fontFilePath } from "./fonts.ts";
-import { LAYOUTS, TEMPLATES } from "./layouts.ts";
+import { type FrameGeometry, LAYOUTS, TEMPLATES } from "./layouts.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /**
@@ -51,6 +52,12 @@ export type StoreManifest = {
     simulatorName: string | null;
     screenshot: { width: number; height: number };
     preview: { width: number; height: number } | null;
+    /**
+     * Bezel art fixed to this device (the android Pixel art), with the
+     * geometry it composes at. null on devices that render the frame variant
+     * the design picks.
+     */
+    frame: { url: string; geom: FrameGeometry } | null;
   }>;
   locales: string[];
   /** Keyed by device key, then locale. */
@@ -140,6 +147,17 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   const custom = "variant" in cfg.frame ? null : "frames/custom.png";
   if (custom) await copyFile(framePath(cfg), join(webDir, custom));
 
+  // Bezel art a device brings itself, copied under its device key: the
+  // android Pixel art, which the frame picker does not apply to.
+  const deviceFrames: Record<string, { url: string; geom: FrameGeometry }> = {};
+  for (const key of cfg.devices) {
+    if (DEVICES[key].platform !== "android") continue;
+    const { image, geom } = deviceFrame(cfg, key);
+    const url = `frames/${key}${extname(image)}`;
+    await copyFile(image, join(webDir, url));
+    deviceFrames[key] = { url, geom };
+  }
+
   // Bundled typefaces, so the browser renders the same cuts the canvas does.
   const fontsDir = join(webDir, "fonts");
   await mkdir(fontsDir, { recursive: true });
@@ -214,6 +232,7 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
       simulatorName: DEVICES[key].simulatorName ?? null,
       screenshot: DEVICES[key].screenshot,
       preview: DEVICES[key].preview,
+      frame: deviceFrames[key] ?? null,
     })),
     locales: cfg.locales,
     assets,

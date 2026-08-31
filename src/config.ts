@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { ANDROID_FRAME, FRAME } from "./frame.ts";
 import {
+  type FrameGeometry,
   isLayoutKey,
   isTemplateKey,
   LAYOUT_KEYS,
@@ -11,7 +13,7 @@ import {
   TEMPLATE_KEYS,
   type TemplateChoice,
 } from "./layouts.ts";
-import type { DeviceKey } from "./specs.ts";
+import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /** Bezel art bundled in goldie's own assets/, one PNG per variant. */
 export const FRAME_VARIANTS = ["17-pro-silver", "17-pro-blue", "17-pro-orange"] as const;
@@ -151,13 +153,13 @@ export type GoldieConfig = {
     appPath: string;
     applicationId: string;
     /**
-     * Real bezel art for the android device, with its own geometry: the image
-     * (relative to the config), its pixel size, the transparent screen cutout
-     * inside it, and the cutout's corner radius. Android SDK emulator skins
+     * Bezel art for the android device, replacing the bundled Pixel 10 Pro
+     * art, with its own geometry: the image (relative to the config), its
+     * pixel size, the transparent screen cutout inside it, and the cutout's
+     * corner radius. Android SDK emulator skins
      * (`$ANDROID_HOME/skins/<device>/`) carry exactly this: `back.webp` is the
      * frame and the `layout` file states the display rect and corner_radius;
-     * punch the display rect transparent and point this at the result. Without
-     * it the device renders the drawn generic bezel.
+     * punch the display rect transparent and point this at the result.
      */
     frame?: {
       image: string;
@@ -439,6 +441,26 @@ export function framePath(cfg: LoadedConfig): string {
   }
   if (!existsSync(file)) throw new Error(`Frame image not found: ${file}`);
   return file;
+}
+
+/**
+ * Bezel art a device renders with: the config's `frame` on iOS, and on
+ * android the bundled Pixel 10 Pro art unless the config supplies its own
+ * `android.frame`. The geometry travels with the image, since the android art
+ * has a different image box and cutout than the iOS variants.
+ */
+export function deviceFrame(
+  cfg: LoadedConfig,
+  deviceKey: DeviceKey,
+): { image: string; geom: FrameGeometry } {
+  if (DEVICES[deviceKey].platform !== "android") return { image: framePath(cfg), geom: FRAME };
+  const custom = cfg.android?.frame;
+  if (custom) {
+    const image = resolve(cfg.root, custom.image);
+    if (!existsSync(image)) throw new Error(`Frame image not found: ${image}`);
+    return { image, geom: custom };
+  }
+  return { image: resolve(GOLDIE_ROOT, "assets", ANDROID_FRAME.file), geom: ANDROID_FRAME.geom };
 }
 
 /**

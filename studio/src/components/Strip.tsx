@@ -20,6 +20,7 @@ import type {
   DesignScene,
   DeviceCaptures,
   DeviceEntry,
+  FrameGeometry,
   SceneCopy,
   Theme,
 } from "../manifest";
@@ -154,6 +155,11 @@ export function Strip({
 
   const totalSeconds = segments.reduce((s, c) => s + c.durationSeconds, 0);
 
+  // A device with its own bezel art (android) ignores the frame picker: the
+  // picker's variants are iPhone art, with iPhone geometry.
+  const deviceFrameUrl = tileSpec.frame?.url ?? frameUrl;
+  const geom = tileSpec.frame?.geom;
+
   type Entry = {
     key: string;
     width: number;
@@ -215,7 +221,8 @@ export function Strip({
             theme={theme}
             screenOnly={screenOnly}
             background={background}
-            frameUrl={frameUrl}
+            frameUrl={deviceFrameUrl}
+            geom={geom}
             fontFamily={fontFamily}
             headline={copy[scene.id]?.headline?.[locale] ?? scene.headline[locale] ?? ""}
             subhead={copy[scene.id]?.subhead?.[locale] ?? scene.subhead?.[locale]}
@@ -610,6 +617,7 @@ function ScreenshotScene({
   screenOnly,
   background,
   frameUrl,
+  geom,
   fontFamily,
   headline,
   subhead,
@@ -629,6 +637,8 @@ function ScreenshotScene({
   screenOnly: boolean;
   background: string;
   frameUrl: string;
+  /** The bezel art's geometry; the iOS bundled art's when the device brings none. */
+  geom: FrameGeometry | undefined;
   fontFamily: string;
   headline: string;
   subhead: string | undefined;
@@ -641,7 +651,7 @@ function ScreenshotScene({
   locale: string;
   onEdit?: (field: "headline" | "subhead", text: string) => void;
 }) {
-  const c = compose(spec, tile, theme, { screenOnly });
+  const c = compose(spec, tile, theme, { screenOnly, geom });
   const { w, h } = cq(tile);
   // Wider-than-reference tiles compose at a narrower design width; type follows it.
   const typeScale = c.designWidth / tile.width;

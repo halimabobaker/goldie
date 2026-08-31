@@ -19,17 +19,18 @@ const config: GoldieConfig = {
   appPath: `${process.env.HOME}/Library/Developer/Xcode/DerivedData/<App>-<hash>/Build/Products/Release-iphonesimulator/<App>.app`,
   bundleId: "com.example.app",
 
-  // Google Play too: add "android-phone" and the android block below. Scenes
+  // Google Play too: add "pixel-10-pro" and the android block below. Scenes
   // and flows are shared across devices; argent flows replay on Android when
   // their selectors match. The emulator must already be running.
   // android: { appPath: "/path/to/app-release.apk", applicationId: "com.example.app" },
 
-  devices: ["iphone-6.9"],       // keys from $GOLDIE/src/specs.ts; "android-phone" for Google Play
+  devices: ["iphone-6.9"],       // keys from $GOLDIE/src/specs.ts; "pixel-10-pro" for Google Play
   locales: ["en-US"],
   appearance: "light",           // simulator appearance for every capture
 
   // Bundled bezels: "17-pro-silver" | "17-pro-blue" | "17-pro-orange".
-  // Pick the finish that contrasts with the background.
+  // Pick the finish that contrasts with the background. iPhone art: the
+  // android device is framed with the bundled Pixel 10 Pro bezel instead.
   frame: { variant: "17-pro-blue" },
 
   theme: {

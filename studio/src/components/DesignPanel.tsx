@@ -62,6 +62,7 @@ const SYSTEM_FONT = '-apple-system, "SF Pro Display", system-ui, sans-serif';
 
 export function DesignPanel({
   design,
+  deviceFrame,
   background,
   frame,
   fontFamily,
@@ -76,6 +77,8 @@ export function DesignPanel({
   onScreenOnly,
 }: {
   design: Design;
+  /** The shown device brings its own bezel art (android), so the frame picker does not apply. */
+  deviceFrame: boolean;
   background: string;
   frame: string;
   fontFamily: string;
@@ -105,7 +108,9 @@ export function DesignPanel({
     ...(design.frameVariant === null ? [["", "Custom (from config)"] as [string, string]] : []),
   ];
   const showFrames =
-    !screenOnly && (design.frameVariants.length > 1 || design.frameVariant === null);
+    !screenOnly &&
+    !deviceFrame &&
+    (design.frameVariants.length > 1 || design.frameVariant === null);
 
   return (
     <div className="flex flex-col gap-5 px-5 py-5">

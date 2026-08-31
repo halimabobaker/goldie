@@ -8,7 +8,15 @@ by [Kelly Hu](https://www.figma.com/@kellyhu2), licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 The bezel art was exported from that file and cropped to a transparent screen
-cutout; the rest of goldie is MIT licensed.
+cutout.
+
+`pixel-10-pro.webp` is the Pixel 10 Pro emulator skin's `back.webp` from the
+Android SDK (`$ANDROID_HOME/skins/pixel_10_pro/`), part of the Android Open
+Source Project and licensed under the
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0), with the
+display rect the skin's `layout` file states punched transparent.
+
+The rest of goldie is MIT licensed.
 
 ## Fonts
 
