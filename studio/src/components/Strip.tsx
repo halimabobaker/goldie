@@ -138,11 +138,23 @@ export function Strip({
     unforced.find((r) => r.scene.id === scene.id)!.layout.key;
 
   // Mirrors the CLI's --background handling: a dark background flips the copy
-  // to light, and per-scene background overrides are dropped, so the export
-  // matches what is on screen.
-  const dark = isDarkBackground(background);
-  const headlineColor = dark ? "#FFFFFF" : theme.headlineColor;
-  const subheadColor = dark ? "#D9E1EA" : theme.subheadColor;
+  // to light, a light background flips light copy colors to dark, and
+  // per-scene background overrides are dropped, so the export matches what
+  // is on screen.
+  const bgLum = backgroundLuminance(background);
+  const dark = bgLum !== null && bgLum < 0.5;
+  const light = bgLum !== null && bgLum >= 0.5;
+  const lightColor = (c: string) => (backgroundLuminance(c) ?? 0) > 0.5;
+  const headlineColor = dark
+    ? "#FFFFFF"
+    : light && lightColor(theme.headlineColor)
+      ? "#0E1B2A"
+      : theme.headlineColor;
+  const subheadColor = dark
+    ? "#D9E1EA"
+    : light && lightColor(theme.subheadColor)
+      ? "#5A6A7D"
+      : theme.subheadColor;
 
   const allShots = scenes.flatMap((scene) => {
     const capture = captures.screenshots.find((s) => s.sceneId === scene.id);
@@ -1020,12 +1032,12 @@ function rankOf(order: string[], id: string): number {
 }
 
 /**
- * Mirror of the CLI's isDarkBackground: mean relative luminance of the
- * background's hex stops, below 0.5 counts as dark.
+ * Mirror of the CLI's backgroundLuminance: mean relative luminance of the
+ * value's six-digit hex colors, or null when it has none.
  */
-function isDarkBackground(css: string): boolean {
+function backgroundLuminance(css: string): number | null {
   const hexes = css.match(/#[0-9a-fA-F]{6}/g);
-  if (!hexes || hexes.length === 0) return false;
+  if (!hexes || hexes.length === 0) return null;
   const luminance = (hex: string) => {
     const channel = (offset: number) => {
       const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
@@ -1033,5 +1045,5 @@ function isDarkBackground(css: string): boolean {
     };
     return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
   };
-  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length < 0.5;
+  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length;
 }
