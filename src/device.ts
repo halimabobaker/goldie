@@ -1,6 +1,8 @@
-import { readFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import * as argent from "./argent.ts";
 import { exec, execOrThrow } from "./exec.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
@@ -77,38 +79,138 @@ async function avdDeviceName(serial: string): Promise<string | null> {
   return ini?.match(/^hw\.device\.name\s*=\s*(.+)$/m)?.[1]?.trim() ?? null;
 }
 
+/** Directory holding AVDs: $ANDROID_AVD_HOME, else ~/.android/avd. */
+function avdHome(): string {
+  return process.env.ANDROID_AVD_HOME || join(homedir(), ".android", "avd");
+}
+
 /**
- * Serial of the running emulator whose AVD uses the spec's hardware profile.
- * goldie does not boot emulators (AVD names are a local choice), so one must
- * already be running. Physical devices are never eligible: `adb devices` lists
- * phones plugged in over USB in the same "device" state, and picking one would
- * reinstall the app over its data and rewrite its system UI.
+ * Names of the local AVDs whose config.ini hardware profile is in the wanted
+ * list, ordered by the list (boot preference) and then by name. The AVD name
+ * is the `<name>.avd` directory basename.
  */
-async function resolveSerial(key: DeviceKey): Promise<string> {
-  const wanted = DEVICES[key].avdDeviceName!;
+export async function findAvdsForProfiles(wanted: string[]): Promise<string[]> {
+  const entries = await readdir(avdHome(), { withFileTypes: true }).catch(() => []);
+  const byProfile = new Map<string, string[]>(wanted.map((p) => [p, []]));
+  for (const entry of entries) {
+    if (!entry.name.endsWith(".avd")) continue;
+    const ini = await readFile(join(avdHome(), entry.name, "config.ini"), "utf8").catch(() => null);
+    const profile = ini?.match(/^hw\.device\.name\s*=\s*(.+)$/m)?.[1]?.trim();
+    if (profile) byProfile.get(profile)?.push(basename(entry.name, ".avd"));
+  }
+  return wanted.flatMap((p) => byProfile.get(p)!.sort());
+}
+
+/** AVD names matching the device's hardware profiles (doctor uses this). */
+export async function matchingAvds(key: DeviceKey): Promise<string[]> {
+  return findAvdsForProfiles(DEVICES[key].avdDeviceNames!);
+}
+
+/** The emulator launcher inside the Android SDK, or null when no SDK is found. */
+function emulatorBinary(): string | null {
+  const roots = [
+    process.env.ANDROID_HOME,
+    process.env.ANDROID_SDK_ROOT,
+    join(homedir(), "Library", "Android", "sdk"),
+  ];
+  for (const root of roots) {
+    if (!root) continue;
+    const bin = join(root, "emulator", "emulator");
+    if (existsSync(bin)) return bin;
+  }
+  return null;
+}
+
+const BOOT_DEADLINE_MS = 180_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Serial of the running emulator whose AVD profile is in the wanted list, or null. */
+async function runningSerialForProfile(wanted: string[]): Promise<string | null> {
   const emulators = (await adbSerials().catch(() => [])).filter((s) => s.startsWith("emulator-"));
-  if (emulators.length === 0) {
+  for (const serial of emulators) {
+    const profile = await avdDeviceName(serial);
+    if (profile && wanted.includes(profile)) return serial;
+  }
+  return null;
+}
+
+/**
+ * Launch the AVD detached (it outlives the CLI) and wait until an emulator
+ * with the wanted hardware profile is adb-ready and fully booted. Matching by
+ * profile rather than tracking the spawned process keeps this idempotent when
+ * a matching emulator appears by other means mid-wait.
+ */
+async function bootEmulator(bin: string, avdName: string, wanted: string[]): Promise<string> {
+  spawn(bin, ["-avd", avdName], { detached: true, stdio: "ignore" }).unref();
+  const deadline = Date.now() + BOOT_DEADLINE_MS;
+  let serial: string | null = null;
+  while (!serial) {
+    if (Date.now() > deadline) {
+      throw new Error(`Emulator "${avdName}" did not reach "device" state within 180s.`);
+    }
+    await sleep(2000);
+    serial = await runningSerialForProfile(wanted);
+  }
+  while (true) {
+    const r = await exec("adb", ["-s", serial, "shell", "getprop", "sys.boot_completed"], {
+      quiet: true,
+    });
+    if (r.code === 0 && r.stdout.trim() === "1") return serial;
+    if (Date.now() > deadline) {
+      throw new Error(`Emulator "${avdName}" did not finish booting within 180s.`);
+    }
+    await sleep(2000);
+  }
+}
+
+const profileList = (wanted: string[]) => wanted.map((p) => `"${p}"`).join(" or ");
+
+/**
+ * Serial of the running emulator whose AVD uses one of the spec's hardware
+ * profiles. When none is running and autoBoot is on, the first matching AVD
+ * is booted automatically. Physical devices are never eligible: `adb devices`
+ * lists phones plugged in over USB in the same "device" state, and picking one
+ * would reinstall the app over its data and rewrite its system UI.
+ */
+async function resolveSerial(key: DeviceKey, opts: { autoBoot?: boolean } = {}): Promise<string> {
+  const wanted = DEVICES[key].avdDeviceNames!;
+  const running = await runningSerialForProfile(wanted);
+  if (running) return running;
+  if (!(opts.autoBoot ?? true)) {
     throw new Error(
-      'No Android emulator in "device" state. Start one: emulator -avd <name>  ' +
-        "(list with: emulator -list-avds)",
+      `No running emulator uses the ${profileList(wanted)} hardware profile. ` +
+        "Start one: emulator -avd <name>  (list with: emulator -list-avds)",
     );
   }
-  for (const serial of emulators) {
-    if ((await avdDeviceName(serial)) === wanted) return serial;
+  const avds = await findAvdsForProfiles(wanted);
+  if (avds.length === 0) {
+    throw new Error(
+      `No AVD uses the ${profileList(wanted)} hardware profile. Create one from the ` +
+        `matching device definition (Android Studio > Device Manager, or ` +
+        `avdmanager create avd --device ${wanted[0]}) and re-run.`,
+    );
   }
-  throw new Error(
-    `No running emulator uses the "${wanted}" hardware profile. Create an AVD from ` +
-      `the matching device definition (Android Studio > Device Manager, or ` +
-      `avdmanager create avd --device ${wanted}) and start it.`,
-  );
+  const bin = emulatorBinary();
+  if (!bin) {
+    throw new Error(
+      "Cannot find the emulator binary. Set ANDROID_HOME (looked in $ANDROID_HOME, " +
+        "$ANDROID_SDK_ROOT, ~/Library/Android/sdk).",
+    );
+  }
+  console.log(`  booting AVD "${avds[0]}"…`);
+  return bootEmulator(bin, avds[0]!, wanted);
 }
 
 /**
  * Device identifier the argent tools take in place of a UDID: a simulator
  * UDID on iOS, a running emulator's adb serial on android.
  */
-export async function resolveUdid(key: DeviceKey): Promise<string> {
-  if (isAndroid(key)) return resolveSerial(key);
+export async function resolveUdid(
+  key: DeviceKey,
+  opts: { autoBoot?: boolean } = {},
+): Promise<string> {
+  if (isAndroid(key)) return resolveSerial(key, opts);
   const spec = DEVICES[key];
   const byRuntime = await simctlDevices();
   const runtimes = Object.keys(byRuntime)

@@ -118,15 +118,22 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
 
   for (const key of cfg.devices) {
     const spec = DEVICES[key];
-    const udid = await device.resolveUdid(key).catch(() => null);
     if (spec.platform === "android") {
+      // Doctor only reports; capture is what boots an emulator when needed.
+      const serial = await device.resolveUdid(key, { autoBoot: false }).catch(() => null);
+      const avds = serial ? [] : await device.matchingAvds(key).catch(() => []);
       checks.push({
         name: `emulator ${key}`,
-        ok: Boolean(udid),
-        detail: udid ?? 'no adb device in "device" state',
-        fix: "emulator -avd <name>   (list with: emulator -list-avds)",
+        ok: Boolean(serial) || avds.length > 0,
+        detail:
+          serial ??
+          (avds.length > 0
+            ? `not running; capture will boot AVD "${avds[0]}"`
+            : `no AVD with the ${spec.avdDeviceNames?.map((p) => `"${p}"`).join(" or ")} hardware profile`),
+        fix: `avdmanager create avd --device ${spec.avdDeviceNames?.[0]} --name <name>   (or Android Studio > Device Manager)`,
       });
     } else {
+      const udid = await device.resolveUdid(key).catch(() => null);
       checks.push({
         name: `simulator ${spec.simulatorName}`,
         ok: Boolean(udid),

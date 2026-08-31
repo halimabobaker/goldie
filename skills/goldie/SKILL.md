@@ -194,9 +194,9 @@ without you, and Export downloads an upload-ready zip.
 The `pixel-10-pro` device key renders Play phone screenshots (1080 x 1920)
 from the same scenes: scenes and flows are shared across devices, and argent
 flows replay on Android when their selectors match. Add the config's
-`android: { appPath: "<apk>", applicationId: "<id>" }` block, start an
-emulator whose AVD uses the Pixel 10 Pro hardware profile first
-(`emulator -avd <name>`; goldie does not boot one), then run
+`android: { appPath: "<apk>", applicationId: "<id>" }` block, make sure an
+AVD with the Pixel 10 Pro or Pixel 9 Pro hardware profile exists (same
+screen; goldie reuses a running emulator or boots the AVD itself), then run
 the same capture/frame commands. Android tiles are framed with the bundled
 Pixel 10 Pro bezel instead of the config's `frame` variant (iPhone art);
 `android.frame` replaces it with your own art. No preview video exists for

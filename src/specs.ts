@@ -20,11 +20,12 @@ export type DeviceSpec = {
    */
   simulatorName?: string;
   /**
-   * Required AVD hardware profile (`hw.device.name` in the AVD's config.ini).
-   * Android only - a running emulator qualifies only when its profile matches,
-   * so captures always come from the intended screen geometry.
+   * Accepted AVD hardware profiles (`hw.device.name` in the AVD's config.ini),
+   * in boot-preference order. Android only - a running emulator qualifies only
+   * when its profile is listed, so captures always come from the intended
+   * screen geometry. Every profile in the list must share that geometry.
    */
-  avdDeviceName?: string;
+  avdDeviceNames?: string[];
   /**
    * Native capture resolution, portrait. null accepts the device's native
    * capture size as-is (Android emulators vary).
@@ -48,11 +49,12 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
     preview: { width: 886, height: 1920 },
   },
   // Framed with the bundled Pixel 10 Pro art (src/frame.ts), not the config's
-  // frame variant, which is iPhone art with iPhone geometry.
+  // frame variant, which is iPhone art with iPhone geometry. The Pixel 9 Pro
+  // shares the 1280x2856 screen, so its emulator captures compose identically.
   "pixel-10-pro": {
     label: "play-phone",
     platform: "android",
-    avdDeviceName: "pixel_10_pro",
+    avdDeviceNames: ["pixel_10_pro", "pixel_9_pro"],
     native: null,
     screenshot: { width: 1080, height: 1920 },
     preview: null,
