@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { Reorder } from "motion/react";
+import { AnimatePresence, Reorder } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -32,6 +32,17 @@ import { Button } from "./ui/button";
 const PAGE_SIZE = 5;
 /** Apple's cap on screenshots per device family. */
 const MAX_SCREENSHOTS = 10;
+
+/**
+ * Page-turn animation: the incoming page slides in from the side the arrow
+ * points at while the outgoing page leaves through the opposite edge. 110%
+ * keeps a page's tile shadows clear of the clip edge until it is in motion.
+ */
+const pageSlide = {
+  enter: (direction: number) => ({ x: direction > 0 ? "110%" : "-110%" }),
+  center: { x: "0%" },
+  exit: (direction: number) => ({ x: direction > 0 ? "-110%" : "110%" }),
+};
 
 /**
  * The five-up strip, composited in the browser: each screenshot tile is the
@@ -307,6 +318,13 @@ export function Strip({
   }
   const pages = pageCells.length;
   const [page, setPage] = useState(0);
+  // Which way the last page turn went, so the incoming page slides in from
+  // that side and the outgoing one leaves through the other.
+  const [direction, setDirection] = useState(0);
+  const turnPage = (delta: number) => {
+    setDirection(delta);
+    setPage((p) => p + delta);
+  };
   // A device switch can shrink the tile count; keep the page in range.
   useEffect(() => {
     if (page > pages - 1) setPage(pages - 1);
@@ -333,44 +351,58 @@ export function Strip({
   return (
     <div className="flex w-full flex-col gap-3">
       <div className="relative">
-        <Reorder.Group
-          axis="x"
-          values={visibleIds}
-          onReorder={reorderPage}
-          aria-label="Screenshots, drag to reorder"
-          className="grid w-full list-none items-start gap-4 p-0"
-          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-        >
-          {visible.map((cell) =>
-            cell.sceneId ? (
-              <Reorder.Item
-                key={cell.sceneId}
-                value={cell.sceneId}
-                className="relative grid gap-4"
-                style={{
-                  zIndex: lifting === cell.sceneId ? 10 : undefined,
-                  gridColumn: `span ${cell.tiles.length}`,
-                  gridTemplateColumns: `repeat(${cell.tiles.length}, minmax(0, 1fr))`,
-                }}
-                animate={{ scale: lifting === cell.sceneId ? 1.04 : 1 }}
-                onDragStart={() => {
-                  dragged.current = true;
-                  setLifting(cell.sceneId ?? null);
-                }}
-                onDragEnd={() => {
-                  setLifting(null);
-                  setTimeout(() => {
-                    dragged.current = false;
-                  }, 0);
-                }}
-              >
-                {cell.tiles.map(tileAt)}
-              </Reorder.Item>
-            ) : (
-              <li key={entries[cell.tiles[0]].key}>{tileAt(cell.tiles[0])}</li>
-            ),
-          )}
-        </Reorder.Group>
+        {/* Clips only horizontally, so a sliding page vanishes at the strip's
+            edge while tile shadows and the hover lift stay visible; the small
+            padding keeps the edge tiles' own shadows out of the clip. */}
+        <div className="-mx-2 overflow-x-clip px-2">
+          <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+            <Reorder.Group
+              key={page}
+              axis="x"
+              values={visibleIds}
+              onReorder={reorderPage}
+              aria-label="Screenshots, drag to reorder"
+              className="grid w-full list-none items-start gap-4 p-0"
+              style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+              custom={direction}
+              variants={pageSlide}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: "tween", duration: 0.25, ease: "easeInOut" }}
+            >
+              {visible.map((cell) =>
+                cell.sceneId ? (
+                  <Reorder.Item
+                    key={cell.sceneId}
+                    value={cell.sceneId}
+                    className="relative grid gap-4"
+                    style={{
+                      zIndex: lifting === cell.sceneId ? 10 : undefined,
+                      gridColumn: `span ${cell.tiles.length}`,
+                      gridTemplateColumns: `repeat(${cell.tiles.length}, minmax(0, 1fr))`,
+                    }}
+                    animate={{ scale: lifting === cell.sceneId ? 1.04 : 1 }}
+                    onDragStart={() => {
+                      dragged.current = true;
+                      setLifting(cell.sceneId ?? null);
+                    }}
+                    onDragEnd={() => {
+                      setLifting(null);
+                      setTimeout(() => {
+                        dragged.current = false;
+                      }, 0);
+                    }}
+                  >
+                    {cell.tiles.map(tileAt)}
+                  </Reorder.Item>
+                ) : (
+                  <li key={entries[cell.tiles[0]].key}>{tileAt(cell.tiles[0])}</li>
+                ),
+              )}
+            </Reorder.Group>
+          </AnimatePresence>
+        </div>
 
         {pages > 1 ? (
           <>
@@ -378,13 +410,13 @@ export function Strip({
               side="left"
               label="Previous screenshots"
               disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
+              onClick={() => turnPage(-1)}
             />
             <PagerButton
               side="right"
               label="Next screenshots"
               disabled={page === pages - 1}
-              onClick={() => setPage((p) => p + 1)}
+              onClick={() => turnPage(1)}
             />
           </>
         ) : null}
