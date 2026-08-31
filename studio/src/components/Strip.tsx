@@ -510,9 +510,12 @@ function Lightbox({
         style={{
           viewTransitionName: "lightbox-scene",
           aspectRatio: `${entry.width} / ${entry.height}`,
-          maxWidth: "calc(100vw - 4rem)",
-          maxHeight: "calc(100vh - 6rem)",
-          width: `calc((100vh - 6rem) * ${entry.width / entry.height})`,
+          // Sized by width alone so the aspect ratio always holds: a height
+          // cap plus flex shrinking would squash the box, stretching the bezel
+          // art off the cover-fitted capture (a misaligned camera cutout). The
+          // 7.5rem clears the padding, gap and layout row below the scene.
+          flexShrink: 0,
+          width: `min(calc(100vw - 4rem), calc((100vh - 7.5rem) * ${entry.width / entry.height}))`,
         }}
       >
         {entry.scene(true)}
