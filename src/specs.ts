@@ -20,6 +20,12 @@ export type DeviceSpec = {
    */
   simulatorName?: string;
   /**
+   * Required AVD hardware profile (`hw.device.name` in the AVD's config.ini).
+   * Android only - a running emulator qualifies only when its profile matches,
+   * so captures always come from the intended screen geometry.
+   */
+  avdDeviceName?: string;
+  /**
    * Native capture resolution, portrait. null accepts the device's native
    * capture size as-is (Android emulators vary).
    */
@@ -48,6 +54,7 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
   "android-phone": {
     label: "play-phone",
     platform: "android",
+    avdDeviceName: "pixel_10_pro",
     native: null,
     screenshot: { width: 1080, height: 1920 },
     preview: null,

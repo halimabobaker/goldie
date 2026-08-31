@@ -195,7 +195,8 @@ The `android-phone` device key renders Play phone screenshots (1080 x 1920)
 from the same scenes: scenes and flows are shared across devices, and argent
 flows replay on Android when their selectors match. Add the config's
 `android: { appPath: "<apk>", applicationId: "<id>" }` block, start an
-emulator first (`emulator -avd <name>`; goldie does not boot one), then run
+emulator whose AVD uses the Pixel 10 Pro hardware profile first
+(`emulator -avd <name>`; goldie does not boot one), then run
 the same capture/frame commands. Android tiles render screen-only (no bundled
 bezel art), and no preview video exists for Play - the promo video is a
 YouTube link - so `preview` skips the device.

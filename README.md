@@ -62,9 +62,10 @@ H.264 preview, per locale. Previews must run 15 to 30 seconds.
 Add the `android-phone` device key to render Google Play phone screenshots
 (1080 x 1920) from the same scenes. Argent flows replay on Android too, so
 the scene flows are shared; a flow works on both platforms when its selectors
-match. The captures come from a running Android emulator - goldie does not
-boot one, so start it first (`emulator -avd <name>`, list with
-`emulator -list-avds`) and add the build to the config:
+match. The captures come from a running Android emulator whose AVD uses the
+Pixel 10 Pro hardware profile - goldie does not boot one, so create the AVD
+from the Pixel 10 Pro device definition, start it first (`emulator -avd
+<name>`, list with `emulator -list-avds`) and add the build to the config:
 
 ```ts
 devices: ["iphone-6.9", "android-phone"],

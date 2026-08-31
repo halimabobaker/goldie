@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as argent from "./argent.ts";
@@ -63,15 +64,42 @@ async function sendDemoCommands(serial: string): Promise<void> {
 }
 
 /**
- * First running emulator's adb serial. goldie does not boot emulators (AVD
- * names are a local choice), so one must already be running.
+ * The AVD hardware profile (`hw.device.name` in config.ini) behind a running
+ * emulator, or null when it cannot be read. `adb emu avd path` answers only on
+ * emulator serials, which is part of the guard: a physical phone never has one.
  */
-async function resolveSerial(): Promise<string> {
-  const serials = await adbSerials().catch(() => []);
-  if (serials[0]) return serials[0];
+async function avdDeviceName(serial: string): Promise<string | null> {
+  const r = await exec("adb", ["-s", serial, "emu", "avd", "path"], { quiet: true });
+  if (r.code !== 0) return null;
+  const avdPath = r.stdout.split("\n")[0]?.trim();
+  if (!avdPath) return null;
+  const ini = await readFile(join(avdPath, "config.ini"), "utf8").catch(() => null);
+  return ini?.match(/^hw\.device\.name\s*=\s*(.+)$/m)?.[1]?.trim() ?? null;
+}
+
+/**
+ * Serial of the running emulator whose AVD uses the spec's hardware profile.
+ * goldie does not boot emulators (AVD names are a local choice), so one must
+ * already be running. Physical devices are never eligible: `adb devices` lists
+ * phones plugged in over USB in the same "device" state, and picking one would
+ * reinstall the app over its data and rewrite its system UI.
+ */
+async function resolveSerial(key: DeviceKey): Promise<string> {
+  const wanted = DEVICES[key].avdDeviceName!;
+  const emulators = (await adbSerials().catch(() => [])).filter((s) => s.startsWith("emulator-"));
+  if (emulators.length === 0) {
+    throw new Error(
+      'No Android emulator in "device" state. Start one: emulator -avd <name>  ' +
+        "(list with: emulator -list-avds)",
+    );
+  }
+  for (const serial of emulators) {
+    if ((await avdDeviceName(serial)) === wanted) return serial;
+  }
   throw new Error(
-    'No Android emulator in "device" state. Start one: emulator -avd <name>  ' +
-      "(list with: emulator -list-avds)",
+    `No running emulator uses the "${wanted}" hardware profile. Create an AVD from ` +
+      `the matching device definition (Android Studio > Device Manager, or ` +
+      `avdmanager create avd --device ${wanted}) and start it.`,
   );
 }
 
@@ -80,7 +108,7 @@ async function resolveSerial(): Promise<string> {
  * UDID on iOS, a running emulator's adb serial on android.
  */
 export async function resolveUdid(key: DeviceKey): Promise<string> {
-  if (isAndroid(key)) return resolveSerial();
+  if (isAndroid(key)) return resolveSerial(key);
   const spec = DEVICES[key];
   const byRuntime = await simctlDevices();
   const runtimes = Object.keys(byRuntime)
