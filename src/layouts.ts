@@ -401,11 +401,13 @@ export function compose(
   // Copy composes in the reference column, but a device shrunk into it leaves
   // dead margins on a wider tile. Devices there keep their real-tile size and
   // slide DOWN until they clear the copy band, bleeding off the bottom the way
-  // dense 9:16 frames do; reference-aspect tiles skip both adjustments.
+  // dense 9:16 frames do; reference-aspect tiles skip both adjustments. A
+  // copy-less layout (minimal) shows the whole device, so real-tile sizing
+  // would push it past the tile's top and bottom; it keeps the reference size.
   const squat = tile !== tileIn;
   const devices = spec.devices.map((d) => {
     const widthRatio = isClassic ? theme.deviceWidthRatio : d.widthRatio;
-    const deviceTile = squat && !d.fitBelowCopy ? tileIn : tile;
+    const deviceTile = squat && !d.fitBelowCopy && spec.copy.position !== "none" ? tileIn : tile;
     let scale = (deviceTile.width * widthRatio) / art.width;
     let left: number;
     let top: number;
