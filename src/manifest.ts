@@ -41,14 +41,10 @@ export type StoreManifest = {
     price: string;
     description: Record<string, string>;
   };
-  /**
-   * null simulatorName / preview mark an android device. The studio's strip
-   * view only fully renders iOS devices today; multi-device UI is upstream
-   * (goldie PR #1).
-   */
   devices: Array<{
     key: DeviceKey;
     label: string;
+    platform: "ios" | "android";
     simulatorName: string | null;
     screenshot: { width: number; height: number };
     preview: { width: number; height: number } | null;
@@ -229,6 +225,7 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
     devices: cfg.devices.map((key) => ({
       key,
       label: DEVICES[key].label,
+      platform: DEVICES[key].platform,
       simulatorName: DEVICES[key].simulatorName ?? null,
       screenshot: DEVICES[key].screenshot,
       preview: DEVICES[key].preview,

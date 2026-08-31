@@ -9,9 +9,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Platform } from "../App";
 import type { StoreManifest } from "../manifest";
 import { DesignPanel } from "./DesignPanel";
 import { ExportPanel } from "./ExportPanel";
+
+const PLATFORM_LABELS = { ios: "App Store", android: "Google Play" } as const;
 
 /**
  * The left rail: the goldie wordmark with the appearance toggle, what the
@@ -20,9 +24,11 @@ import { ExportPanel } from "./ExportPanel";
  */
 export function Sidebar({
   manifest,
+  platform,
   device,
   locale,
   dark,
+  onPlatform,
   onDevice,
   onLocale,
   onDark,
@@ -40,9 +46,11 @@ export function Sidebar({
   onScreenOnly,
 }: {
   manifest: StoreManifest;
+  platform: Platform;
   device: string;
   locale: string;
   dark: boolean;
+  onPlatform: (v: Platform) => void;
   onDevice: (v: string) => void;
   onLocale: (v: string) => void;
   onDark: (v: boolean) => void;
@@ -59,6 +67,7 @@ export function Sidebar({
   onLayout: (v: string) => void;
   onScreenOnly: (v: boolean) => void;
 }) {
+  const platformDevices = manifest.devices.filter((d) => d.platform === platform);
   return (
     <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar text-sidebar-foreground">
       <header className="flex h-14 shrink-0 items-center justify-between pr-3 pl-5">
@@ -76,14 +85,30 @@ export function Sidebar({
       </header>
 
       <div className="sidebar-scroll flex-1 overflow-y-auto">
-        {manifest.devices.length > 1 || manifest.locales.length > 1 ? (
+        {/* Both stores always show, so an iOS-only setup still surfaces that
+            Google Play screenshots exist (and vice versa). */}
+        <div className="px-5 pt-4">
+          <Tabs value={platform} onValueChange={(p) => onPlatform(p as Platform)}>
+            <TabsList className="w-full">
+              {(Object.keys(PLATFORM_LABELS) as Platform[]).map((p) => (
+                <TabsTrigger key={p} value={p}>
+                  {PLATFORM_LABELS[p]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+        {platformDevices.length > 1 || manifest.locales.length > 1 ? (
           <div className="flex flex-col gap-4 p-5">
-            {manifest.devices.length > 1 ? (
+            {platformDevices.length > 1 ? (
               <Field label="Device">
                 <Select
                   value={device}
                   onChange={onDevice}
-                  options={manifest.devices.map((d) => [d.key, `${d.label}"`])}
+                  options={platformDevices.map((d) => [
+                    d.key,
+                    d.platform === "ios" ? `${d.label}"` : d.label,
+                  ])}
                 />
               </Field>
             ) : null}
@@ -100,7 +125,9 @@ export function Sidebar({
         ) : null}
         <DesignPanel
           design={manifest.design}
-          deviceFrame={Boolean(manifest.devices.find((d) => d.key === device)?.frame)}
+          deviceFrame={
+            platform === "android" || Boolean(platformDevices.find((d) => d.key === device)?.frame)
+          }
           background={background}
           frame={frame}
           fontFamily={fontFamily}
