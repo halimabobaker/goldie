@@ -1,17 +1,14 @@
 ---
 name: goldie
 description: >-
-  Create App Store screenshots and app preview videos for an iOS app with the
-  goldie toolkit: explore the app on a simulator, author argent flows for its
-  key user flows, render framed screenshots and a plain preview video, and open a local
-  studio showing the finished store page. Use this whenever the user asks
-  for App Store or Google Play screenshots, store assets, marketing
-  screenshots, an app preview video, or mentions goldie, even if they only say
-  something like "make screenshots for the store" or "I need App Store assets
-  for this app".
-  Also use it for follow-ups on assets goldie already made: new headlines, a
-  different background or bezel, swapping or reordering a screenshot, or a
-  changed preview story. Run it from inside the mobile app's repo.
+  Create App Store and Play Store screenshots and preview videos for an iOS
+  or Android app. goldie explores the app on a simulator or emulator, writes
+  argent flows, renders framed screenshots and a preview video, and opens a
+  local studio with the finished store page. Use this skill when the user
+  asks for store screenshots, store assets, a preview video, or mentions
+  goldie. Also use it to change assets goldie made before: new headlines, a
+  different background or bezel, or a new screenshot order. Run it from the
+  mobile app's repo.
 ---
 
 # goldie: App Store assets for the app in this repo
