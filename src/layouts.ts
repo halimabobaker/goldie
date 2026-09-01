@@ -386,15 +386,19 @@ export function compose(
         : spec.copy.align === "left"
           ? padX
           : width / 2;
+    // Centred copy follows the reference column on a wide tile, but a
+    // left-aligned block reads against the card's left edge, so it skips
+    // the centring shift and keeps its inset from the real edge.
+    const copyDx = spec.copy.align === "left" ? 0 : dx;
     const boxLeft = spec.copy.align === "left" ? x : x - maxWidth / 2;
     const top = spec.copy.position === "top" ? 0 : height - copyHeight;
     copy = {
       position: spec.copy.position,
       align: spec.copy.align,
-      x: x + dx,
+      x: x + copyDx,
       y: spec.copy.position === "top" ? height * TYPE.padTop : height - height * TYPE.padBottom,
       maxWidth,
-      box: { left: boxLeft + dx, top, width: maxWidth, height: copyHeight },
+      box: { left: boxLeft + copyDx, top, width: maxWidth, height: copyHeight },
     };
   }
 
