@@ -18,7 +18,7 @@ import {
   type Theme,
 } from "./config.ts";
 import { exec, execOrThrow } from "./exec.ts";
-import { registerFonts } from "./fonts.ts";
+import { registerFonts, withGlyphFallback } from "./fonts.ts";
 import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
 
@@ -168,10 +168,11 @@ function drawCopy(
   theme: Theme,
   text: { headline: string; subhead?: string },
 ) {
+  const family = withGlyphFallback(theme.fontFamily);
   const blocks = [
     {
       text: text.headline,
-      font: `${TYPE.headlineWeight} ${tile.width * TYPE.headlineSize}px ${theme.fontFamily}`,
+      font: `${TYPE.headlineWeight} ${tile.width * TYPE.headlineSize}px ${family}`,
       color: theme.headlineColor,
       lineHeight: TYPE.headlineLineHeight,
       letterSpacing: tile.width * TYPE.headlineTracking,
@@ -180,7 +181,7 @@ function drawCopy(
       ? [
           {
             text: text.subhead,
-            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize}px ${theme.fontFamily}`,
+            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize}px ${family}`,
             color: theme.subheadColor,
             lineHeight: TYPE.subheadLineHeight,
             letterSpacing: 0,
@@ -264,7 +265,7 @@ async function drawDecorations(
   for (const d of decorations) {
     if (d.kind === "badge") {
       const text = pick(d.text, locale, sceneId, "badge");
-      const font = `${BADGE.weight} ${tile.width * BADGE.fontSize}px ${cfg.theme.fontFamily}`;
+      const font = `${BADGE.weight} ${tile.width * BADGE.fontSize}px ${withGlyphFallback(cfg.theme.fontFamily)}`;
       ctx.font = font;
       ctx.letterSpacing = "0px";
       const size = fontSize(font);
@@ -301,6 +302,23 @@ async function drawDecorations(
 
 const fontSize = (font: string) => Number(font.match(/(\d+(?:\.\d+)?)px/)?.[1]);
 
+const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
+
+/**
+ * Splits a paragraph at the points a line may break. Splitting on spaces
+ * alone would leave CJK copy as one unbreakable run (those scripts use no
+ * spaces), so segmentation finds the word boundaries instead. Whitespace and
+ * punctuation glue to the preceding unit, so a line never starts with them.
+ */
+function breakableUnits(paragraph: string): string[] {
+  const units: string[] = [];
+  for (const s of segmenter.segment(paragraph)) {
+    if (s.isWordLike || units.length === 0) units.push(s.segment);
+    else units[units.length - 1] += s.segment;
+  }
+  return units;
+}
+
 /** Word-wraps text to `maxWidth`, honouring explicit newlines. */
 export function wrapLines(
   ctx: SKRSContext2D,
@@ -314,16 +332,16 @@ export function wrapLines(
   const lines: string[] = [];
   for (const paragraph of text.split("\n")) {
     let line = "";
-    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
-      const next = line ? `${line} ${word}` : word;
-      if (line && ctx.measureText(next).width > maxWidth) {
-        lines.push(line);
-        line = word;
+    for (const unit of breakableUnits(paragraph.replace(/\s+/g, " ").trim())) {
+      const next = line + unit;
+      if (line && ctx.measureText(next.trimEnd()).width > maxWidth) {
+        lines.push(line.trimEnd());
+        line = unit;
       } else {
         line = next;
       }
     }
-    lines.push(line);
+    lines.push(line.trimEnd());
   }
   return lines;
 }

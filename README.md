@@ -101,8 +101,8 @@ renders the same result. The config also takes:
   `dynamic`, or your own layout sequence from `classic`, `copy-below`, `hero`,
   `offset`, `tilt`, `tilt-right`, `duo`, `duo-tilt`, `panorama`,
   `panorama-duo`, `minimal`.
-- `theme.fontFamily`: a CSS font stack. Merriweather, DM Mono, Lato, DM Sans
-  and Montserrat are bundled.
+- `theme.fontFamily`: a CSS font stack. Merriweather, DM Mono, Lato, DM Sans,
+  Montserrat and Noto Sans SC (Simplified Chinese) are bundled.
 - `decorations`: badges or images layered behind the device.
 
 ## Remarks

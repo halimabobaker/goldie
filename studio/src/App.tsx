@@ -219,6 +219,14 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
     return () => style.remove();
   }, [design.fonts]);
 
+  // The exporter appends the bundled CJK typeface as a per-glyph fallback, so
+  // the preview does the same; otherwise the browser would silently substitute
+  // a system font for characters the chosen stack cannot draw. Only the bare
+  // stack is saved to goldie.design.json.
+  const cjk = design.fonts.find((f) => f.key === "noto-sans-sc");
+  const previewFontFamily =
+    cjk && !fontFamily.includes(cjk.family) ? `${fontFamily}, "${cjk.family}"` : fontFamily;
+
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
   const spec = platformDevices.find((d) => d.key === device) ?? platformDevices[0];
   const captures = spec ? design.captures[spec.key] : undefined;
@@ -263,7 +271,7 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
                 locale={locale}
                 background={background}
                 frameUrl={frameUrl}
-                fontFamily={fontFamily}
+                fontFamily={previewFontFamily}
                 copy={copy}
                 onCopy={setSceneCopy}
                 order={order}
@@ -377,10 +385,10 @@ function storeView(appName: string, saved: SavedView): void {
 function fontFaces(fonts: BundledFont[]): string {
   return fonts
     .flatMap((font) =>
-      font.faces.map(
-        (face) =>
-          `@font-face{font-family:"${font.family}";font-weight:${face.weight};font-style:normal;src:url("${face.url}") format("truetype")}`,
-      ),
+      font.faces.map((face) => {
+        const format = face.url.endsWith(".otf") ? "opentype" : "truetype";
+        return `@font-face{font-family:"${font.family}";font-weight:${face.weight};font-style:normal;src:url("${face.url}") format("${format}")}`;
+      }),
     )
     .join("\n");
 }
