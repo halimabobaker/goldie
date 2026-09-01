@@ -369,7 +369,7 @@ function ShadeSwatch({
                 aria-pressed={on}
                 onClick={() => onChange(hex)}
                 style={{ background: hex }}
-                className="grid h-7 w-4 place-items-center transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="grid h-7 w-6 place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {on ? (
                   <span
