@@ -6,15 +6,18 @@ import {
   deviceFrame,
   FRAME_VARIANTS,
   framePath,
+  frameVariantFor,
   isPreview,
   isScreenshot,
   type LoadedConfig,
   type Theme,
+  VARIANT_DEVICE,
   variantFramePath,
 } from "./config.ts";
 import { execOrThrow } from "./exec.ts";
 import { FONTS, fontFilePath } from "./fonts.ts";
-import { type FrameGeometry, LAYOUTS, TEMPLATES } from "./layouts.ts";
+import type { FrameGeometry } from "./frame.ts";
+import { LAYOUTS, TEMPLATES } from "./layouts.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /**
@@ -61,10 +64,11 @@ export type StoreManifest = {
   /** Everything the studio needs to composite scenes in the browser. */
   design: {
     theme: Theme;
-    /** null when the config points at custom bezel art. */
-    frameVariant: string | null;
-    frameVariants: string[];
-    /** Url of the config's custom bezel art; null when a bundled variant is used. */
+    /** The bundled variant each device renders with; null when the config points at custom bezel art. */
+    frames: Record<string, string | null>;
+    /** Every bundled variant and the device it is drawn for. */
+    frameVariants: Array<{ key: string; device: string }>;
+    /** Url of the config's custom bezel art; null when bundled variants are used. */
     customFrameUrl: string | null;
     /** Bundled typefaces, with the @font-face sources the studio declares. */
     fonts: Array<{
@@ -137,11 +141,15 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   // frames never waits on a server.
   const framesDir = join(webDir, "frames");
   await mkdir(framesDir, { recursive: true });
+  const frameVariants: StoreManifest["design"]["frameVariants"] = [];
   for (const variant of FRAME_VARIANTS) {
     await copyFile(variantFramePath(variant), join(framesDir, `${variant}.png`));
+    frameVariants.push({ key: variant, device: VARIANT_DEVICE[variant] });
   }
   const custom = "variant" in cfg.frame ? null : "frames/custom.png";
   if (custom) await copyFile(framePath(cfg), join(webDir, custom));
+  const frames: StoreManifest["design"]["frames"] = {};
+  for (const device of cfg.devices) frames[device] = frameVariantFor(cfg, device);
 
   // Bezel art a device brings itself, copied under its device key: the
   // android Pixel art, which the frame picker does not apply to.
@@ -235,8 +243,8 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
     assets,
     design: {
       theme: cfg.theme,
-      frameVariant: "variant" in cfg.frame ? cfg.frame.variant : null,
-      frameVariants: [...FRAME_VARIANTS],
+      frames,
+      frameVariants,
       customFrameUrl: custom,
       fonts,
       layouts: Object.values(LAYOUTS).map(({ key, label, description, span }) => ({

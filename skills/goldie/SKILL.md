@@ -92,6 +92,12 @@ It needs Node 20+ and `ffmpeg` on the PATH (`brew install ffmpeg`). If
 `bun $GOLDIE_ROOT/src/cli.ts <cmd>` instead. All app-specific files live in
 the app repo.
 
+goldie knows three devices: `iphone-6.9` (iPhone 17 Pro Max, the App Store's
+required size), `ipad-13` (iPad Pro 13-inch, for apps that also ship on
+iPad), and `pixel-10-pro` (the Google Play phone). All replay the same flows
+and share the copy, theme and template; each has its own bezels, raw
+captures, output folder and studio view.
+
 ## Step 1: Gather app facts
 
 What to look for depends on the stores chosen in Step 0.
@@ -118,9 +124,12 @@ for the store you are targeting: an iPhone 16 Pro Max class simulator for the
 App Store, a Pixel 10 Pro (or Pixel 9 Pro) AVD for Google Play. Install the
 build, launch it, and walk the main screens with `describe` and `screenshot`.
 Also check the app repo for existing recorded flows in `.argent/flows/`; they
-are the best source of working selectors and coordinates. When both stores are
-targeted, explore on one device and keep the selectors text- and id-based so
-the same flows replay on the other.
+are the best source of working selectors and coordinates. If the app ships on
+iPad too (`supportsTablet` in an Expo config, or an iPad target), plan on
+adding `"ipad-13"` to `devices` and check the same screens on an "iPad Pro
+13-inch (M4)" simulator. Whenever more than one device is targeted, the flows
+must use selectors that hold on every layout, so prefer `text:` and `id:`
+over coordinates.
 
 Choose:
 
@@ -259,7 +268,8 @@ the next prompt can build on it.
 |---|---|---|
 | Different headline, subhead or store copy | `scenes[].headline` / `subhead`, `store.*` | `frame`, `manifest` |
 | A new look: background, text colors, font, sizing | `theme.*`, or `scenes[].background` for one tile | `frame`, `manifest` |
-| A different bezel, or no bezel | `frame.variant`, `theme.screenOnly` | `frame`, `manifest` |
+| A different bezel, or no bezel | `frame.variant` (one variant, or one per device key), `theme.screenOnly` | `frame`, `manifest` |
+| iPad screenshots as well | `devices: ["iphone-6.9", "ipad-13"]`, `frame.variant["ipad-13"]` | `capture --device ipad-13`, `frame`, `preview`, `manifest` |
 | A varied strip: panorama opener, hero, tilted tiles, a breather | `theme.template`: a built-in key or a sequence of layout keys (see `references/config.md`) | `frame`, `manifest` |
 | A different layout for every tile, or one | `theme.layout`, or `scenes[].layout` for one tile | `frame`, `manifest` |
 | Two screens in one tile, or a two-tile panorama | `scenes[].layout: "duo"` / `"panorama-duo"` plus `secondScene`, or `"panorama"` | `frame`, `manifest` |

@@ -11,7 +11,7 @@ import { exec } from "./exec.ts";
  * the prebuilt studio/dist) and the Vite dev server (studio/vite.config.ts).
  *
  * GET/PUT /api/design - the design choices saved next to the config as
- * goldie.design.json ({ background?, frame?, fontFamily?, copy?, order? }).
+ * goldie.design.json ({ background?, frames?, fontFamily?, copy?, order? }).
  * The CLI's loadConfig() applies the file, so a saved choice also shapes plain
  * `goldie frame` runs. The UI debounces its PUTs; the server writes the file
  * atomically so a half-written JSON never reaches the CLI.
@@ -19,7 +19,7 @@ import { exec } from "./exec.ts";
  * POST /api/export - renders the final assets from the raw captures with the
  * chosen background and frame (goldie frame + preview + manifest), zips
  * out/screenshots and out/previews, and streams the CLI log as plain text.
- * Body: { background?, frame?, font?, template?, layout?, screenOnly? };
+ * Body: { background?, frames?, font?, template?, layout?, screenOnly? };
  * per-scene layouts ride on goldie.design.json, which the CLI reads on its
  * own. The response ends with "[done]" on success or "[failed]" otherwise; on
  * "[done]" the UI downloads GET /api/export/download.
@@ -50,7 +50,8 @@ export function studioPaths(configPath: string): StudioPaths {
 
 export type ExportOptions = {
   background?: string;
-  frame?: string;
+  /** One bezel variant per device key. */
+  frames?: Record<string, string>;
   font?: string;
   template?: string;
   layout?: string;
@@ -163,7 +164,9 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
 
       const flags: string[] = [];
       if (opts.background) flags.push("--background", opts.background);
-      if (opts.frame) flags.push("--frame", opts.frame);
+      for (const variant of Object.values(opts.frames ?? {})) {
+        if (variant) flags.push("--frame", variant);
+      }
       if (opts.font) flags.push("--font", opts.font);
       if (opts.template) flags.push("--template", opts.template);
       if (opts.layout) flags.push("--layout", opts.layout);

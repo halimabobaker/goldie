@@ -1,9 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { ANDROID_FRAME, FRAME } from "./frame.ts";
+import { ANDROID_FRAME, FRAMES, type FrameGeometry } from "./frame.ts";
 import {
-  type FrameGeometry,
   isLayoutKey,
   isTemplateKey,
   LAYOUT_KEYS,
@@ -13,11 +12,34 @@ import {
   TEMPLATE_KEYS,
   type TemplateChoice,
 } from "./layouts.ts";
-import { DEVICES, type DeviceKey } from "./specs.ts";
+import { DEVICE_KEYS, DEVICES, type DeviceKey, isDeviceKey } from "./specs.ts";
 
-/** Bezel art bundled in goldie's own assets/, one PNG per variant. */
-export const FRAME_VARIANTS = ["17-pro-silver", "17-pro-blue", "17-pro-orange"] as const;
+/** Bezel art bundled in goldie's own assets/, one PNG per variant, each drawn for one device. */
+export const FRAME_VARIANTS = [
+  "17-pro-silver",
+  "17-pro-blue",
+  "17-pro-orange",
+  "ipad-pro-13-silver",
+  "ipad-pro-13-space-gray",
+] as const;
 export type FrameVariant = (typeof FRAME_VARIANTS)[number];
+
+export const VARIANT_DEVICE: Record<FrameVariant, DeviceKey> = {
+  "17-pro-silver": "iphone-6.9",
+  "17-pro-blue": "iphone-6.9",
+  "17-pro-orange": "iphone-6.9",
+  "ipad-pro-13-silver": "ipad-13",
+  "ipad-pro-13-space-gray": "ipad-13",
+};
+
+/** The variants drawn for a device, the first one its default. */
+function deviceVariants(device: DeviceKey): FrameVariant[] {
+  return FRAME_VARIANTS.filter((v) => VARIANT_DEVICE[v] === device);
+}
+
+export function isFrameVariant(key: string): key is FrameVariant {
+  return (FRAME_VARIANTS as readonly string[]).includes(key);
+}
 
 export type Locale = string;
 
@@ -174,12 +196,13 @@ export type GoldieConfig = {
   /** Simulator appearance for every capture. */
   appearance: "light" | "dark";
   /**
-   * Device bezel art for the screenshots. Either a bundled variant from
-   * assets/ (all variants share the cutout geometry in src/frame.ts) or a
-   * custom PNG with a transparent screen cutout, relative to the config file.
-   * Custom art means re-measuring the geometry in src/frame.ts.
+   * Device bezel art for the screenshots: one bundled variant from assets/,
+   * which applies to the device it is drawn for while the others keep their
+   * default, or one per device key, or a custom PNG with a transparent screen
+   * cutout relative to the config file. Custom art means re-measuring the
+   * geometry in src/frame.ts.
    */
-  frame: { variant: FrameVariant } | { image: string };
+  frame: { variant: FrameVariant | Partial<Record<DeviceKey, FrameVariant>> } | { image: string };
   theme: Theme;
   store: StoreListing;
   scenes: Scene[];
@@ -244,8 +267,15 @@ export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConf
     flowsDir: cfg.flowsDir ? resolve(root, cfg.flowsDir) : resolve(cfg.appRoot, ".argent/flows"),
     outDir: resolve(root, "out"),
   };
+  for (const key of loaded.devices) {
+    if (!isDeviceKey(key)) {
+      throw new Error(`Unknown device "${key}". Available: ${DEVICE_KEYS.join(", ")}`);
+    }
+  }
   applyDesign(loaded, readDesign(path));
-  framePath(loaded); // fail at load time on a bad variant or missing bezel PNG
+  // Fail at load time on a bad variant or missing bezel PNG; android devices
+  // never load one from cfg.frame (drawn generic bezel or cfg.android.frame).
+  for (const d of loaded.devices) if (DEVICES[d].platform !== "android") framePath(loaded, d);
   validateLayouts(loaded);
   return loaded;
 }
@@ -258,6 +288,8 @@ export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConf
 export type DesignOverrides = {
   background?: string;
   frame?: FrameVariant;
+  /** A variant per device key, as the studio's frame picker saves them. */
+  frames?: Partial<Record<DeviceKey, FrameVariant>>;
   /** A full CSS font stack, as the studio's font picker produces. */
   fontFamily?: string;
   /** Copy edited in the studio, per screenshot scene id, then locale. */
@@ -315,9 +347,18 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
       }
     }
   }
+  const frames: Partial<Record<DeviceKey, FrameVariant>> = { ...design.frames };
   if (design.frame) {
-    cfg.frame = { variant: design.frame };
-    framePath(cfg); // throws on an unknown variant
+    if (!isFrameVariant(design.frame)) {
+      throw new Error(
+        `Unknown frame variant "${design.frame}". Available: ${FRAME_VARIANTS.join(", ")}`,
+      );
+    }
+    frames[VARIANT_DEVICE[design.frame]] = design.frame;
+  }
+  if (Object.keys(frames).length > 0) {
+    cfg.frame = { variant: { ...configVariants(cfg), ...frames } };
+    for (const d of cfg.devices) if (DEVICES[d].platform !== "android") framePath(cfg, d); // throws on an unknown variant
   }
   if (design.fontFamily) cfg.theme.fontFamily = design.fontFamily;
   if (design.copy) {
@@ -435,20 +476,47 @@ export function variantFramePath(variant: FrameVariant): string {
   return resolve(GOLDIE_ROOT, "assets", `${variant}.png`);
 }
 
-/** Absolute path to the bezel PNG the config selects. */
-export function framePath(cfg: LoadedConfig): string {
-  let file: string;
-  if ("variant" in cfg.frame) {
-    if (!FRAME_VARIANTS.includes(cfg.frame.variant)) {
+/** The config's bundled variants by device; empty for custom art. */
+function configVariants(cfg: LoadedConfig): Partial<Record<DeviceKey, FrameVariant>> {
+  if (!("variant" in cfg.frame)) return {};
+  const v = cfg.frame.variant;
+  if (typeof v !== "string") return { ...v };
+  if (!isFrameVariant(v)) {
+    throw new Error(`Unknown frame variant "${v}". Available: ${FRAME_VARIANTS.join(", ")}`);
+  }
+  return { [VARIANT_DEVICE[v]]: v };
+}
+
+/** The variant a device renders with; null when the config points at custom art. */
+export function frameVariantFor(cfg: LoadedConfig, device: DeviceKey): FrameVariant | null {
+  if (!("variant" in cfg.frame)) return null;
+  const chosen = configVariants(cfg)[device];
+  if (chosen !== undefined) {
+    if (!isFrameVariant(chosen)) {
+      throw new Error(`Unknown frame variant "${chosen}". Available: ${FRAME_VARIANTS.join(", ")}`);
+    }
+    if (VARIANT_DEVICE[chosen] !== device) {
       throw new Error(
-        `Unknown frame variant "${cfg.frame.variant}". Available: ${FRAME_VARIANTS.join(", ")}`,
+        `Frame variant "${chosen}" is drawn for ${VARIANT_DEVICE[chosen]}, not ${device}.`,
       );
     }
-    file = variantFramePath(cfg.frame.variant);
-  } else {
-    file = resolve(cfg.root, cfg.frame.image);
+    return chosen;
   }
-  if (!existsSync(file)) throw new Error(`Frame image not found: ${file}`);
+  return deviceVariants(device)[0]!;
+}
+
+/** Absolute path to the bezel PNG the config selects for a device. */
+export function framePath(cfg: LoadedConfig, device: DeviceKey = "iphone-6.9"): string {
+  const variant = frameVariantFor(cfg, device);
+  const file = variant
+    ? variantFramePath(variant)
+    : resolve(cfg.root, (cfg.frame as { image: string }).image);
+  if (!existsSync(file)) {
+    throw new Error(
+      `Frame image not found: ${file}` +
+        (variant?.startsWith("ipad-") ? " (run scripts/fetch-ipad-bezels.sh)" : ""),
+    );
+  }
   return file;
 }
 
@@ -462,7 +530,8 @@ export function deviceFrame(
   cfg: LoadedConfig,
   deviceKey: DeviceKey,
 ): { image: string; geom: FrameGeometry } {
-  if (DEVICES[deviceKey].platform !== "android") return { image: framePath(cfg), geom: FRAME };
+  if (DEVICES[deviceKey].platform !== "android")
+    return { image: framePath(cfg, deviceKey), geom: FRAMES[deviceKey] };
   const custom = cfg.android?.frame;
   if (custom) {
     const image = resolve(cfg.root, custom.image);

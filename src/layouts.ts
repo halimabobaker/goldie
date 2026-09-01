@@ -6,7 +6,7 @@
  * the exported PNG identical. Every number that shapes a composition lives
  * here; neither renderer carries geometry or type sizes of its own.
  */
-import { FRAME } from "./frame.ts";
+import { FRAME, type FrameGeometry } from "./frame.ts";
 
 export const LAYOUT_KEYS = [
   "classic",
@@ -334,7 +334,8 @@ export type Composition = {
 
 /**
  * Pixel geometry for a layout on a tile of the given size. `screenOnly`
- * drops the bezel: the device box becomes the bare screen cutout.
+ * drops the bezel: the device box becomes the bare screen cutout. `geom` is
+ * the device's bezel geometry (FRAMES in frame.ts); the iPhone's by default.
  */
 /**
  * Every layout fraction was tuned on the App Store 6.9" tile (1320x2868). A
@@ -343,14 +344,6 @@ export type Composition = {
  * column centres in the tile; reference-aspect tiles pass through unchanged.
  */
 const REF_TILE_ASPECT = 1320 / 2868;
-
-/** Bezel art geometry: the image box, the screen cutout inside it, its corner radius. */
-export type FrameGeometry = {
-  width: number;
-  height: number;
-  screen: { x: number; y: number; width: number; height: number };
-  screenRadius: number;
-};
 
 export function compose(
   spec: LayoutSpec,

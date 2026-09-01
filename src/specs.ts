@@ -9,7 +9,7 @@
  *   themselves, with no store constraints enforced.
  */
 
-export type DeviceKey = "iphone-6.9" | "pixel-10-pro";
+export type DeviceKey = "iphone-6.9" | "ipad-13" | "pixel-10-pro";
 
 export type DeviceSpec = {
   /**
@@ -56,6 +56,14 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
     screenshot: { width: 1320, height: 2868 },
     preview: { width: 886, height: 1920 },
   },
+  "ipad-13": {
+    label: "13",
+    platform: "ios",
+    simulatorName: "iPad Pro 13-inch (M4)",
+    native: { width: 2064, height: 2752 },
+    screenshot: { width: 2064, height: 2752 },
+    preview: { width: 1200, height: 1600 },
+  },
   // Framed with the bundled Pixel 10 Pro art (src/frame.ts), not the config's
   // frame variant, which is iPhone art with iPhone geometry. The Pixel 9 Pro
   // shares the 1280x2856 screen, so its emulator captures compose identically.
@@ -70,6 +78,12 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
     preview: { width: 1080, height: 2400 },
   },
 };
+
+export const DEVICE_KEYS = Object.keys(DEVICES) as DeviceKey[];
+
+export function isDeviceKey(key: string): key is DeviceKey {
+  return key in DEVICES;
+}
 
 /**
  * Preview constraints Apple enforces at upload time. Both platforms encode
