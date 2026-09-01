@@ -46,12 +46,27 @@ the store listing, and the preview story. Nothing lives only in your head or
 in the studio, so a user who says "make it darker" or "swap the search
 screenshot for settings" is asking for an edit to those files.
 
-## Step 0: Ask which stores to target
+## Step 0: Settle which stores to target
 
-On a fresh setup, unless the user already named the platform, ask before
-doing anything else. If an interactive question tool is available (such as
-AskUserQuestion in Claude Code), use it with multiple selections allowed;
-otherwise ask in chat and let the user pick one or both. The options:
+Which stores are in play follows from what the repo can build, so look before
+asking. Check for an iOS target (an `.xcodeproj` / `.xcworkspace`, a Swift
+package with an app target, an `ios/` directory) and an Android target (a
+`build.gradle[.kts]` with an application module, an `android/` directory).
+
+- **Single-platform repo** — native Android only, or iOS/Swift only. There is
+  one possible answer, so do not ask: target that store and say which one you
+  picked and why in your first message.
+- **Cross-platform repo** — React Native, Expo, Flutter, Kotlin Multiplatform,
+  or anything else with both an iOS and an Android target. Always ask before
+  doing anything else, even when the user already named one platform: a prompt
+  that says "Play Store screenshots" often still means "and the App Store
+  too", and the answer decides work that is expensive to redo. If an
+  interactive question tool is available (such as AskUserQuestion in Claude
+  Code), use it with multiple selections allowed, preselecting or leading with
+  whatever the user named; otherwise ask in chat and let the user pick one or
+  both.
+
+The two options:
 
 - **Apple App Store (iPhone)**: framed iPhone screenshots and an app preview
   video, captured on an iOS simulator.
@@ -82,34 +97,46 @@ the app repo.
 
 ## Step 1: Gather app facts
 
-From the app repo, find:
+What to look for depends on the stores chosen in Step 0.
 
-- **App name and bundle id.** Look in the Xcode project, `app.json` /
-  `app.config.*` (Expo), or `Info.plist`.
-- **A Release simulator build.** Look for the newest
+- **App name and identifier.** iOS: the Xcode project, `app.json` /
+  `app.config.*` (Expo), or `Info.plist`. Android: `applicationId` in
+  `app/build.gradle[.kts]`, or the Expo config's `android.package`.
+- **An iOS Release simulator build** (App Store only). Look for the newest
   `~/Library/Developer/Xcode/DerivedData/<App>-*/Build/Products/Release-iphonesimulator/<App>.app`.
   If only Debug exists, build Release: a Debug build needs Metro and paints
   LogBox banners into the captures, so it makes unusable marketing assets.
-  Use the repo's own build scripts if it has them.
+- **An Android APK** (Google Play only). A release APK is best; build it with
+  the repo's own scripts or `./gradlew :app:assembleRelease`, and note that an
+  unsigned release APK will not install. A debug APK is acceptable for a
+  native Android app, which paints no debug overlay; for React Native, a debug
+  APK needs Metro and shows the dev overlay, so build release there.
+
+Use the repo's own build scripts whenever it has them.
 
 ## Step 2: Explore the app and choose the scenes
 
-Use argent MCP tools to see the app before deciding anything. Boot an iPhone
-16 Pro Max class simulator, install the Release build, launch it, and walk the
-main screens with `describe` and `screenshot`. Also check the app repo for
-existing recorded flows in `.argent/flows/`; they are the best source of
-working selectors and coordinates.
+Use argent MCP tools to see the app before deciding anything. Boot the device
+for the store you are targeting: an iPhone 16 Pro Max class simulator for the
+App Store, a Pixel 10 Pro (or Pixel 9 Pro) AVD for Google Play. Install the
+build, launch it, and walk the main screens with `describe` and `screenshot`.
+Also check the app repo for existing recorded flows in `.argent/flows/`; they
+are the best source of working selectors and coordinates. When both stores are
+targeted, explore on one device and keep the selectors text- and id-based so
+the same flows replay on the other.
 
 Choose:
 
 - **4 or 5 screenshot scenes.** Each is one screen that sells a feature: the
   main list, a detail view, search, a distinctive feature screen. Prefer
   screens with real-looking content.
-- **A 3 or 4 segment preview story.** One short user journey told in order,
-  for example: see the main screen, start a core action, complete it, see the
-  result. Each segment becomes one clip. The clips are joined with no
-  captions or framing, so each step must read on its own, and the total video
-  must land between 15 and 30 seconds.
+- **A 3 or 4 segment preview story**, for the App Store only; Google Play
+  takes a YouTube link instead, so an Android-only run skips the preview scene
+  entirely. One short user journey told in order, for example: see the main
+  screen, start a core action, complete it, see the result. Each segment
+  becomes one clip. The clips are joined with no captions or framing, so each
+  step must read on its own, and the total video must land between 15 and 30
+  seconds.
 
 While exploring, note the exact visible text labels and accessibility ids you
 will need as selectors, and normalized coordinates for anything with no label
