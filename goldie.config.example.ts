@@ -20,12 +20,20 @@ const config: GoldieConfig = {
   // banners into the captures.
   appPath: `${process.env.HOME}/Library/Developer/Xcode/DerivedData/<App>-<hash>/Build/Products/Release-iphonesimulator/<App>.app`,
   bundleId: "com.example.app",
+  // For the Google Play screenshots, start an emulator (emulator -avd <name>)
+  // and point android at the release .apk; drop "pixel-10-pro" from devices
+  // for an iOS-only run.
+  // android: {
+  //   appPath: "/path/to/app-release.apk",
+  //   applicationId: "com.example.app",
+  // },
 
-  devices: ["iphone-6.9"], // keys from src/specs.ts
+  devices: ["iphone-6.9", "pixel-10-pro"], // keys from src/specs.ts
   locales: ["en-US"],
   appearance: "light",
 
   // Bundled bezel art for the screenshots: "17-pro-silver" | "17-pro-blue" | "17-pro-orange".
+  // iPhone art; the android device is framed with the bundled Pixel 10 Pro bezel.
   // Custom art instead: frame: { image: "path/to/bezel.png" } (re-measure src/frame.ts).
   frame: { variant: "17-pro-blue" },
 

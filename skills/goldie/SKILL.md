@@ -5,9 +5,10 @@ description: >-
   goldie toolkit: explore the app on a simulator, author argent flows for its
   key user flows, render framed screenshots and a plain preview video, and open a local
   studio showing the finished store page. Use this whenever the user asks
-  for App Store screenshots, store assets, marketing screenshots, an app
-  preview video, or mentions goldie, even if they only say something like
-  "make screenshots for the store" or "I need App Store assets for this app".
+  for App Store or Google Play screenshots, store assets, marketing
+  screenshots, an app preview video, or mentions goldie, even if they only say
+  something like "make screenshots for the store" or "I need App Store assets
+  for this app".
   Also use it for follow-ups on assets goldie already made: new headlines, a
   different background or bezel, swapping or reordering a screenshot, or a
   changed preview story. Run it from inside the mobile app's repo.
@@ -45,7 +46,41 @@ the store listing, and the preview story. Nothing lives only in your head or
 in the studio, so a user who says "make it darker" or "swap the search
 screenshot for settings" is asking for an edit to those files.
 
-## Step 0: Make sure goldie runs
+## Step 0: Settle which stores to target
+
+Which stores are in play follows from what the repo can build, so look before
+asking. Check for an iOS target (an `.xcodeproj` / `.xcworkspace`, a Swift
+package with an app target, an `ios/` directory) and an Android target (a
+`build.gradle[.kts]` with an application module, an `android/` directory).
+
+- **Single-platform repo** — native Android only, or iOS/Swift only. There is
+  one possible answer, so do not ask: target that store and say which one you
+  picked and why in your first message.
+- **Cross-platform repo** — React Native, Expo, Flutter, Kotlin Multiplatform,
+  or anything else with both an iOS and an Android target. Always ask before
+  doing anything else, even when the user already named one platform: a prompt
+  that says "Play Store screenshots" often still means "and the App Store
+  too", and the answer decides work that is expensive to redo. If an
+  interactive question tool is available (such as AskUserQuestion in Claude
+  Code), use it with multiple selections allowed, preselecting or leading with
+  whatever the user named; otherwise ask in chat and let the user pick one or
+  both.
+
+The two options:
+
+- **Apple App Store (iPhone)**: framed iPhone screenshots and an app preview
+  video, captured on an iOS simulator.
+- **Google Play Store (Android)**: Play phone screenshots captured on an
+  Android emulator, plus a portrait preview video; the Play promo video is
+  a YouTube link, so the user posts the video there themselves.
+
+Both can be selected; scenes and flows are shared across stores. The answer
+decides which device keys go in the config, which builds Step 1 must find
+(iOS simulator build, Android APK, or both), and whether the Google Play
+section below applies. On a follow-up to an existing setup, the config's
+devices already answer this, so do not ask again.
+
+## Step 0.5: Make sure goldie runs
 
 goldie is an npm package that bundles the CLI, the studio and a pinned argent
 driver. Nothing needs cloning; `npx` fetches it on first use:
@@ -62,23 +97,33 @@ the app repo.
 
 ## Step 1: Gather app facts
 
-From the app repo, find:
+What to look for depends on the stores chosen in Step 0.
 
-- **App name and bundle id.** Look in the Xcode project, `app.json` /
-  `app.config.*` (Expo), or `Info.plist`.
-- **A Release simulator build.** Look for the newest
+- **App name and identifier.** iOS: the Xcode project, `app.json` /
+  `app.config.*` (Expo), or `Info.plist`. Android: `applicationId` in
+  `app/build.gradle[.kts]`, or the Expo config's `android.package`.
+- **An iOS Release simulator build** (App Store only). Look for the newest
   `~/Library/Developer/Xcode/DerivedData/<App>-*/Build/Products/Release-iphonesimulator/<App>.app`.
   If only Debug exists, build Release: a Debug build needs Metro and paints
   LogBox banners into the captures, so it makes unusable marketing assets.
-  Use the repo's own build scripts if it has them.
+- **An Android APK** (Google Play only). A release APK is best; build it with
+  the repo's own scripts or `./gradlew :app:assembleRelease`, and note that an
+  unsigned release APK will not install. A debug APK is acceptable for a
+  native Android app, which paints no debug overlay; for React Native, a debug
+  APK needs Metro and shows the dev overlay, so build release there.
+
+Use the repo's own build scripts whenever it has them.
 
 ## Step 2: Explore the app and choose the scenes
 
-Use argent MCP tools to see the app before deciding anything. Boot an iPhone
-16 Pro Max class simulator, install the Release build, launch it, and walk the
-main screens with `describe` and `screenshot`. Also check the app repo for
-existing recorded flows in `.argent/flows/`; they are the best source of
-working selectors and coordinates.
+Use argent MCP tools to see the app before deciding anything. Boot the device
+for the store you are targeting: an iPhone 16 Pro Max class simulator for the
+App Store, a Pixel 10 Pro (or Pixel 9 Pro) AVD for Google Play. Install the
+build, launch it, and walk the main screens with `describe` and `screenshot`.
+Also check the app repo for existing recorded flows in `.argent/flows/`; they
+are the best source of working selectors and coordinates. When both stores are
+targeted, explore on one device and keep the selectors text- and id-based so
+the same flows replay on the other.
 
 Choose:
 
@@ -87,9 +132,12 @@ Choose:
   screens with real-looking content.
 - **A 3 or 4 segment preview story.** One short user journey told in order,
   for example: see the main screen, start a core action, complete it, see the
-  result. Each segment becomes one clip. The clips are joined with no
-  captions or framing, so each step must read on its own, and the total video
-  must land between 15 and 30 seconds.
+  result. Each segment becomes one clip. The clips are joined with no captions
+  or framing, so each step must read on its own. For the App Store the total
+  video must land between 15 and 30 seconds. Google Play takes a YouTube link
+  instead of an upload, so the Android video is rendered for the user to post
+  themselves and has no duration bounds; when both stores are targeted, aim
+  for the Apple window.
 
 While exploring, note the exact visible text labels and accessibility ids you
 will need as selectors, and normalized coordinates for anything with no label
@@ -187,6 +235,21 @@ assets exist, where they are, and whether they pass Apple's rules. The
 studio's sidebar shows the same checks; a red row is a rule violation. The
 Design panel lets the user restyle backgrounds, layouts, bezels and fonts
 without you, and Export downloads an upload-ready zip.
+
+## Google Play
+
+The `pixel-10-pro` device key renders Play phone screenshots (1080 x 1920)
+from the same scenes: scenes and flows are shared across devices, and argent
+flows replay on Android when their selectors match. Add the config's
+`android: { appPath: "<apk>", applicationId: "<id>" }` block, make sure an
+AVD with the Pixel 10 Pro or Pixel 9 Pro hardware profile exists (same
+screen; goldie reuses a running emulator or boots the AVD itself), then run
+the same capture/frame commands. Android tiles are framed with the bundled
+Pixel 10 Pro bezel instead of the config's `frame` variant (iPhone art);
+`android.frame` replaces it with your own art. Play takes no video uploads
+(the promo video is a YouTube link), so `preview` renders a 1080x2400
+portrait video for the user to post on YouTube themselves; no duration
+bounds apply to it.
 
 ## Iterating on an existing setup
 

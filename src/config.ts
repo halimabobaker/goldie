@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { ANDROID_FRAME, FRAME } from "./frame.ts";
 import {
+  type FrameGeometry,
   isLayoutKey,
   isTemplateKey,
   LAYOUT_KEYS,
@@ -11,7 +13,7 @@ import {
   TEMPLATE_KEYS,
   type TemplateChoice,
 } from "./layouts.ts";
-import type { DeviceKey } from "./specs.ts";
+import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /** Bezel art bundled in goldie's own assets/, one PNG per variant. */
 export const FRAME_VARIANTS = ["17-pro-silver", "17-pro-blue", "17-pro-orange"] as const;
@@ -146,6 +148,27 @@ export type GoldieConfig = {
   /** Simulator .app bundle to install. */
   appPath: string;
   bundleId: string;
+  /** The .apk to install and its applicationId. Required when `devices` names an android key. */
+  android?: {
+    appPath: string;
+    applicationId: string;
+    /**
+     * Bezel art for the android device, replacing the bundled Pixel 10 Pro
+     * art, with its own geometry: the image (relative to the config), its
+     * pixel size, the transparent screen cutout inside it, and the cutout's
+     * corner radius. Android SDK emulator skins
+     * (`$ANDROID_HOME/skins/<device>/`) carry exactly this: `back.webp` is the
+     * frame and the `layout` file states the display rect and corner_radius;
+     * punch the display rect transparent and point this at the result.
+     */
+    frame?: {
+      image: string;
+      width: number;
+      height: number;
+      screen: { x: number; y: number; width: number; height: number };
+      screenRadius: number;
+    };
+  };
   devices: DeviceKey[];
   locales: Locale[];
   /** Simulator appearance for every capture. */
@@ -277,10 +300,19 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
     cfg.theme.background = design.background;
     for (const scene of cfg.scenes) if (isScreenshot(scene)) scene.background = undefined;
     // The config's copy colors assume its own background; a dark override
-    // would render near-black headlines on a near-black gradient.
-    if (isDarkBackground(design.background)) {
+    // would render near-black headlines on a near-black gradient, and a
+    // light override under light copy colors is just as unreadable.
+    const lum = backgroundLuminance(design.background);
+    if (lum !== null && lum < 0.5) {
       cfg.theme.headlineColor = "#FFFFFF";
       cfg.theme.subheadColor = "#D9E1EA";
+    } else if (lum !== null) {
+      if ((backgroundLuminance(cfg.theme.headlineColor) ?? 0) > 0.5) {
+        cfg.theme.headlineColor = "#0E1B2A";
+      }
+      if ((backgroundLuminance(cfg.theme.subheadColor) ?? 0) > 0.5) {
+        cfg.theme.subheadColor = "#5A6A7D";
+      }
     }
   }
   if (design.frame) {
@@ -380,12 +412,12 @@ export function reorderScenes(scenes: Scene[], order: string[]): Scene[] {
 }
 
 /**
- * Mean relative luminance of the background's hex stops, below 0.5 counts as
- * dark. Backgrounds without six-digit hex colors keep the config's copy colors.
+ * Mean relative luminance of the value's six-digit hex colors, or null when
+ * it has none (keep the config's copy colors then).
  */
-export function isDarkBackground(css: string): boolean {
+export function backgroundLuminance(css: string): number | null {
   const hexes = css.match(/#[0-9a-fA-F]{6}/g);
-  if (!hexes || hexes.length === 0) return false;
+  if (!hexes || hexes.length === 0) return null;
   const luminance = (hex: string) => {
     const channel = (offset: number) => {
       const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
@@ -393,7 +425,7 @@ export function isDarkBackground(css: string): boolean {
     };
     return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
   };
-  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length < 0.5;
+  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length;
 }
 
 const GOLDIE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -418,6 +450,26 @@ export function framePath(cfg: LoadedConfig): string {
   }
   if (!existsSync(file)) throw new Error(`Frame image not found: ${file}`);
   return file;
+}
+
+/**
+ * Bezel art a device renders with: the config's `frame` on iOS, and on
+ * android the bundled Pixel 10 Pro art unless the config supplies its own
+ * `android.frame`. The geometry travels with the image, since the android art
+ * has a different image box and cutout than the iOS variants.
+ */
+export function deviceFrame(
+  cfg: LoadedConfig,
+  deviceKey: DeviceKey,
+): { image: string; geom: FrameGeometry } {
+  if (DEVICES[deviceKey].platform !== "android") return { image: framePath(cfg), geom: FRAME };
+  const custom = cfg.android?.frame;
+  if (custom) {
+    const image = resolve(cfg.root, custom.image);
+    if (!existsSync(image)) throw new Error(`Frame image not found: ${image}`);
+    return { image, geom: custom };
+  }
+  return { image: resolve(GOLDIE_ROOT, "assets", ANDROID_FRAME.file), geom: ANDROID_FRAME.geom };
 }
 
 /**
