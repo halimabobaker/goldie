@@ -46,7 +46,26 @@ the store listing, and the preview story. Nothing lives only in your head or
 in the studio, so a user who says "make it darker" or "swap the search
 screenshot for settings" is asking for an edit to those files.
 
-## Step 0: Make sure goldie runs
+## Step 0: Ask which stores to target
+
+On a fresh setup, unless the user already named the platform, ask before
+doing anything else. If an interactive question tool is available (such as
+AskUserQuestion in Claude Code), use it with multiple selections allowed;
+otherwise ask in chat and let the user pick one or both. The options:
+
+- **Apple App Store (iPhone)**: framed iPhone screenshots and an app preview
+  video, captured on an iOS simulator.
+- **Google Play Store (Android)**: Play phone screenshots captured on an
+  Android emulator; the promo video is a YouTube link, so no video is
+  rendered.
+
+Both can be selected; scenes and flows are shared across stores. The answer
+decides which device keys go in the config, which builds Step 1 must find
+(iOS simulator build, Android APK, or both), and whether the Google Play
+section below applies. On a follow-up to an existing setup, the config's
+devices already answer this, so do not ask again.
+
+## Step 0.5: Make sure goldie runs
 
 goldie is an npm package that bundles the CLI, the studio and a pinned argent
 driver. Nothing needs cloning; `npx` fetches it on first use:
