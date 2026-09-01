@@ -282,9 +282,8 @@ async function collect(
   deviceKey: DeviceKey,
   locale: string,
 ): Promise<LocaleAssets> {
-  const label = DEVICES[deviceKey].label;
-  const shotDir = join(cfg.outDir, "screenshots", label, locale);
-  const previewDir = join(cfg.outDir, "previews", label, locale);
+  const shotDir = join(cfg.outDir, "screenshots", deviceKey, locale);
+  const previewDir = join(cfg.outDir, "previews", deviceKey, locale);
   const sceneOrder = cfg.scenes.filter(isScreenshot).map((s) => s.id);
 
   const screenshots: LocaleAssets["screenshots"] = [];
@@ -295,7 +294,7 @@ async function collect(
     const sceneId = sceneOrder.find((id) => name.includes(id)) ?? basename(name, ".png");
     screenshots.push({
       sceneId,
-      url: `screenshots/${label}/${locale}/${name}`,
+      url: `screenshots/${deviceKey}/${locale}/${name}`,
       width,
       height,
       bytes: (await stat(file)).size,
@@ -310,7 +309,7 @@ async function collect(
     const probe = await videoInfo(file);
     preview = {
       sceneId: previewScene.id,
-      url: `previews/${label}/${locale}/${previewName}`,
+      url: `previews/${deviceKey}/${locale}/${previewName}`,
       ...probe,
       bytes: (await stat(file)).size,
     };

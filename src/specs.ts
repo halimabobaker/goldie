@@ -11,7 +11,10 @@
 export type DeviceKey = "iphone-6.9" | "pixel-10-pro";
 
 export type DeviceSpec = {
-  /** Human label used in output paths and logs. */
+  /**
+   * Display label for the studio and logs. Output paths use the DeviceKey,
+   * so raw/, screenshots/ and previews/ all share one naming scheme.
+   */
   label: string;
   platform: "ios" | "android";
   /**
@@ -52,7 +55,7 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
   // frame variant, which is iPhone art with iPhone geometry. The Pixel 9 Pro
   // shares the 1280x2856 screen, so its emulator captures compose identically.
   "pixel-10-pro": {
-    label: "play-phone",
+    label: "Play phone",
     platform: "android",
     avdDeviceNames: ["pixel_10_pro", "pixel_9_pro"],
     native: null,

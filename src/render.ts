@@ -42,7 +42,11 @@ async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<Ca
 export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string) {
   const spec = DEVICES[deviceKey];
   const manifest = await readManifest(cfg, deviceKey);
-  const outDir = join(cfg.outDir, "screenshots", spec.label, locale);
+  // Releases before 0.3 keyed this dir by spec.label; a stale label dir
+  // would otherwise ride along into the export zip.
+  if (spec.label !== deviceKey)
+    await rm(join(cfg.outDir, "screenshots", spec.label), { recursive: true, force: true });
+  const outDir = join(cfg.outDir, "screenshots", deviceKey, locale);
   await mkdir(outDir, { recursive: true });
   // A layout change renumbers the files; stale ones would otherwise be exported.
   for (const name of await readdir(outDir)) {
@@ -475,7 +479,9 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
     );
   }
 
-  const outDir = join(cfg.outDir, "previews", spec.label, locale);
+  if (spec.label !== deviceKey)
+    await rm(join(cfg.outDir, "previews", spec.label), { recursive: true, force: true });
+  const outDir = join(cfg.outDir, "previews", deviceKey, locale);
   await mkdir(outDir, { recursive: true });
   const list = join(outDir, `.${scene.id}.clips.txt`);
   await writeFile(list, clips.map((c) => `file '${c.file.replace(/'/g, "'\\''")}'`).join("\n"));
@@ -543,7 +549,7 @@ export async function verify(
   const spec = DEVICES[deviceKey];
   let ok = true;
 
-  const shotDir = join(cfg.outDir, "screenshots", spec.label, locale);
+  const shotDir = join(cfg.outDir, "screenshots", deviceKey, locale);
   const shots = await exec("sh", ["-c", `ls ${shotDir}/*.png 2>/dev/null`], { quiet: true });
   for (const file of shots.stdout.split("\n").filter(Boolean)) {
     const r = await execOrThrow("sips", [
@@ -573,7 +579,7 @@ export async function verify(
   const previewSpec = spec.preview;
   if (!previewSpec) return ok;
 
-  const previewDir = join(cfg.outDir, "previews", spec.label, locale);
+  const previewDir = join(cfg.outDir, "previews", deviceKey, locale);
   const videos = await exec("sh", ["-c", `ls ${previewDir}/*.mp4 2>/dev/null`], { quiet: true });
   for (const file of videos.stdout.split("\n").filter(Boolean)) {
     const r = await execOrThrow("ffprobe", [

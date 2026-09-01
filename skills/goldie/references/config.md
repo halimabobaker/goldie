@@ -170,8 +170,9 @@ applies to every tile, `scenes[].decorations` to one; both stack.
 
 | Asset | Spec | Location |
 |---|---|---|
-| 6.9" screenshots | 1320x2868 PNG, no alpha | `out/screenshots/6.9/<locale>/` |
-| 6.9" preview | 886x1920 H.264 30fps AAC, 15 to 30 s | `out/previews/6.9/<locale>/` |
+| 6.9" screenshots | 1320x2868 PNG, no alpha | `out/screenshots/iphone-6.9/<locale>/` |
+| 6.9" preview | 886x1920 H.264 30fps AAC, 15 to 30 s | `out/previews/iphone-6.9/<locale>/` |
+| Play phone screenshots | 1080x1920 PNG, no alpha | `out/screenshots/pixel-10-pro/<locale>/` |
 
 `goldie verify` checks the finished files against these with `sips` and
 `ffprobe` and fails on any mismatch.
