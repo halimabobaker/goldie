@@ -59,7 +59,8 @@ const pageSlide = {
  * Every tile is a size-container: the geometry is computed in the device's
  * spec pixels and expressed in cqw/cqh, so the tile is the composition scaled
  * down. Captions under the tiles show the spec size the export will produce;
- * the video's turns red when the clips sum outside Apple's 15-30s window.
+ * the video's turns red when the clips sum outside Apple's 15-30s window
+ * (iOS only; the android video goes to YouTube, which has no bounds).
  *
  * In the lightbox the headline and subhead are editable in place; a change
  * is reported through onCopy for the current locale and layered over the
@@ -204,13 +205,15 @@ export function Strip({
     };
   };
   const entries: Entry[] = [];
-  // tileSpec.preview is null on android devices, which also never have clips.
   if (segments.length > 0 && tileSpec.preview) {
+    // The 15-30s window is Apple's upload rule; the android video goes to
+    // YouTube, which has no duration bounds.
+    const outOfBounds = tileSpec.platform === "ios" && (totalSeconds < 15 || totalSeconds > 30);
     entries.push({
       key: "preview",
       width: tileSpec.preview.width,
       height: tileSpec.preview.height,
-      bad: totalSeconds < 15 || totalSeconds > 30,
+      bad: outOfBounds,
       badReason: "Clips sum outside the 15-30s Apple allows for previews.",
       editable: false,
       scene: () => <PreviewScene segments={segments} />,

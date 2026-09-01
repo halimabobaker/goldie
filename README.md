@@ -83,9 +83,10 @@ android: {
 
 goldie frames Android tiles with the bundled Pixel 10 Pro bezel. The `frame`
 variant is iPhone art, so it does not apply to them. `android.frame` swaps
-in your own art and its geometry. goldie renders no preview video for Play,
-because the Play Store promo video is a YouTube link. `preview` and `all`
-skip the video for this device.
+in your own art and its geometry. The Play Store promo video is a YouTube
+link, so `preview` and `all` record the preview scene on the emulator and
+render a portrait video for you to post on YouTube yourself. Apple's 15-30
+second window does not apply to it.
 
 ## Design
 

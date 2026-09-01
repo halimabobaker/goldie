@@ -465,17 +465,18 @@ function splitTopLevel(s: string): string[] {
 }
 
 /**
- * Joins the raw segment clips into one plain screen recording at the upload
- * size. App Store previews must be the device screen and nothing else, so no
- * bezel, background or captions are added; only an audio track, which Apple
- * requires even when it is silent.
+ * Joins the raw segment clips into one plain screen recording at the spec's
+ * preview size. App Store previews must be the device screen and nothing
+ * else, so no bezel, background or captions are added; only an audio track,
+ * which Apple requires even when it is silent. The android video follows the
+ * same shape, destined for the YouTube promo link the user posts themselves.
  */
 export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, locale: string) {
   const spec = DEVICES[deviceKey];
   const scene = cfg.scenes.find(isPreview);
   if (!scene) return null;
   if (!spec.preview) {
-    console.log(`  ${deviceKey} has no preview pipeline (Google Play takes a YouTube link)`);
+    console.log(`  ${deviceKey} has no preview pipeline`);
     return null;
   }
   const manifest = await readManifest(cfg, deviceKey);
@@ -490,7 +491,8 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   });
 
   const seconds = clips.reduce((s, c) => s + c.durationSeconds, 0);
-  if (seconds < PREVIEW.minSeconds || seconds > PREVIEW.maxSeconds) {
+  // The 15-30s window is Apple's upload rule; a YouTube video has no bounds.
+  if (spec.platform === "ios" && (seconds < PREVIEW.minSeconds || seconds > PREVIEW.maxSeconds)) {
     throw new Error(
       `Preview is ${seconds.toFixed(1)}s; Apple requires ${PREVIEW.minSeconds}-${PREVIEW.maxSeconds}s. ` +
         `Adjust the segment flows or their holdSeconds and re-capture.`,
@@ -616,6 +618,9 @@ export async function verify(
     const fps = evalRatio(video?.avg_frame_rate ?? "0/1");
     const bytes = (await stat(file)).size;
 
+    // Duration and file-size bounds are Apple upload rules; the android video
+    // goes to YouTube, so only the pipeline's own output is checked there.
+    const appleBounds = spec.platform === "ios";
     const checks: Array<[string, boolean, string]> = [
       [
         "size",
@@ -626,7 +631,7 @@ export async function verify(
       ["fps", fps <= PREVIEW.fps + 0.01, fps.toFixed(2)],
       [
         "duration",
-        duration >= PREVIEW.minSeconds && duration <= PREVIEW.maxSeconds,
+        !appleBounds || (duration >= PREVIEW.minSeconds && duration <= PREVIEW.maxSeconds),
         `${duration.toFixed(1)}s`,
       ],
       [
@@ -634,7 +639,11 @@ export async function verify(
         Boolean(audio) && audio.codec_name === "aac",
         audio ? `${audio.codec_name} ${audio.sample_rate}Hz` : "none",
       ],
-      ["filesize", bytes <= PREVIEW.maxBytes, `${(bytes / 1024 / 1024).toFixed(1)} MB`],
+      [
+        "filesize",
+        !appleBounds || bytes <= PREVIEW.maxBytes,
+        `${(bytes / 1024 / 1024).toFixed(1)} MB`,
+      ],
     ];
     for (const [name, good, detail] of checks) {
       ok &&= good;

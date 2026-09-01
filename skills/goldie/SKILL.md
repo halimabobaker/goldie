@@ -71,8 +71,8 @@ The two options:
 - **Apple App Store (iPhone)**: framed iPhone screenshots and an app preview
   video, captured on an iOS simulator.
 - **Google Play Store (Android)**: Play phone screenshots captured on an
-  Android emulator; the promo video is a YouTube link, so no video is
-  rendered.
+  Android emulator, plus a portrait preview video; the Play promo video is
+  a YouTube link, so the user posts the video there themselves.
 
 Both can be selected; scenes and flows are shared across stores. The answer
 decides which device keys go in the config, which builds Step 1 must find
@@ -130,13 +130,14 @@ Choose:
 - **4 or 5 screenshot scenes.** Each is one screen that sells a feature: the
   main list, a detail view, search, a distinctive feature screen. Prefer
   screens with real-looking content.
-- **A 3 or 4 segment preview story**, for the App Store only; Google Play
-  takes a YouTube link instead, so an Android-only run skips the preview scene
-  entirely. One short user journey told in order, for example: see the main
-  screen, start a core action, complete it, see the result. Each segment
-  becomes one clip. The clips are joined with no captions or framing, so each
-  step must read on its own, and the total video must land between 15 and 30
-  seconds.
+- **A 3 or 4 segment preview story.** One short user journey told in order,
+  for example: see the main screen, start a core action, complete it, see the
+  result. Each segment becomes one clip. The clips are joined with no captions
+  or framing, so each step must read on its own. For the App Store the total
+  video must land between 15 and 30 seconds. Google Play takes a YouTube link
+  instead of an upload, so the Android video is rendered for the user to post
+  themselves and has no duration bounds; when both stores are targeted, aim
+  for the Apple window.
 
 While exploring, note the exact visible text labels and accessibility ids you
 will need as selectors, and normalized coordinates for anything with no label
@@ -245,8 +246,10 @@ AVD with the Pixel 10 Pro or Pixel 9 Pro hardware profile exists (same
 screen; goldie reuses a running emulator or boots the AVD itself), then run
 the same capture/frame commands. Android tiles are framed with the bundled
 Pixel 10 Pro bezel instead of the config's `frame` variant (iPhone art);
-`android.frame` replaces it with your own art. No preview video exists for
-Play - the promo video is a YouTube link - so `preview` skips the device.
+`android.frame` replaces it with your own art. Play takes no video uploads
+(the promo video is a YouTube link), so `preview` renders a 1080x2400
+portrait video for the user to post on YouTube themselves; no duration
+bounds apply to it.
 
 ## Iterating on an existing setup
 

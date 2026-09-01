@@ -4,8 +4,9 @@
  *   screenshot-specifications | app-preview-specifications. Verified 2026-08-24.
  * Android: Play Console help, "Add preview assets". Phone screenshots are
  *   PNG/JPEG, 16:9 or 9:16, each side 320-3840px for promotional eligibility.
- *   Play accepts no video uploads (the promo video is a YouTube link), which
- *   is why `preview` is null on android devices.
+ *   Play accepts no video uploads: the promo video is a YouTube link, so the
+ *   android preview renders at a YouTube-friendly size for the user to post
+ *   themselves, with no store constraints enforced.
  */
 
 export type DeviceKey = "iphone-6.9" | "pixel-10-pro";
@@ -36,7 +37,11 @@ export type DeviceSpec = {
   native: { width: number; height: number } | null;
   /** Required screenshot upload size, portrait. */
   screenshot: { width: number; height: number };
-  /** Required app preview upload size, portrait. null: no app-preview video pipeline. */
+  /**
+   * Preview video render size, portrait. On iOS this is the upload size Apple
+   * requires; on android it is the size of the YouTube video the user posts
+   * themselves (Play takes no video uploads). null: no preview pipeline.
+   */
   preview: { width: number; height: number } | null;
   /** Render bare screens with the drop shadow instead of a bezel. */
   screenOnly?: true;
@@ -60,11 +65,17 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
     avdDeviceNames: ["pixel_10_pro", "pixel_9_pro"],
     native: null,
     screenshot: { width: 1080, height: 1920 },
-    preview: null,
+    // Near the 1280x2856 Pixel screen's aspect, so the cover-crop trims only a
+    // sliver; YouTube accepts any portrait size.
+    preview: { width: 1080, height: 2400 },
   },
 };
 
-/** Preview constraints Apple enforces at upload time. */
+/**
+ * Preview constraints Apple enforces at upload time. Both platforms encode
+ * with these settings; the duration and file-size bounds apply on iOS only
+ * (the android video goes to YouTube, which imposes none that matter here).
+ */
 export const PREVIEW = {
   fps: 30,
   minSeconds: 15,

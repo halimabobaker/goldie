@@ -26,7 +26,7 @@ goldie - App Store screenshots and previews, driven by argent
   goldie doctor     Check the toolchain, simulators, flags and flows
   goldie capture    Replay every scene flow and save raw captures
   goldie frame      Composite raw screenshots into framed, captioned PNGs
-  goldie preview    Join the raw clips into the app preview video (iOS; Play takes no videos)
+  goldie preview    Join the raw clips into the preview video (App Store upload; YouTube for Play)
   goldie verify     Check finished assets against the store spec tables
   goldie manifest   Write out/store.json for the studio app
   goldie studio     Serve the studio at http://localhost:4321 (--port <n>, --no-open)
