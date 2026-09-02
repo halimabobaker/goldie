@@ -13,8 +13,13 @@ React Native and Kotlin Multiplatform apps.
 
 ## Install
 
-You need macOS with iOS simulators, Node 20 or newer, and ffmpeg. Google Play
-screenshots also need an Android emulator.
+You need Node 20 or newer and ffmpeg on the PATH. App Store screenshots need
+macOS with iOS simulators (Xcode). Google Play screenshots need an Android
+emulator, which works on macOS, Linux and Windows. On Linux, argent needs
+[a few extra packages](https://github.com/software-mansion/argent#linux-host-extra-prerequisites-for-android-emulators)
+for Android emulators. On a Linux or Windows machine keep only `pixel-10-pro`
+in `devices`; `goldie doctor` says so when an iOS device is configured on a
+host that cannot run it.
 
 Install the CLI:
 
@@ -59,7 +64,9 @@ goldie studio     Preview and tweak the assets in the browser
 The output goes to `out/screenshots/<device>/<locale>/` and
 `out/previews/<device>/<locale>/`. The iPhone gets 1320 x 2868 screenshots
 and an 886 x 1920 H.264 preview. Google Play gets 1080 x 1920 screenshots.
-A preview must run 15 to 30 seconds.
+A preview must run 15 to 30 seconds. Add `"ipad-13"` to `devices` for
+13" iPad screenshots (2064 x 2752) and a 1200 x 1600 preview from the same
+flows, each device with its own bezels, captures and output folder.
 
 ## Google Play
 
@@ -96,8 +103,10 @@ The studio switches devices, backgrounds, templates, bezel, fonts and
 per-tile copy. It saves the choices to `goldie.design.json`, so the CLI
 renders the same result. The config also takes:
 
-- `frame`: `17-pro-blue`, `17-pro-silver`, `17-pro-orange`, or a custom
-  bezel image; `theme.screenOnly: true` removes it.
+- `frame`: `17-pro-blue`, `17-pro-silver`, `17-pro-orange` for the iPhone,
+  `ipad-pro-13-silver`, `ipad-pro-13-space-gray` for the iPad (one variant,
+  or one per device key), or a custom bezel image; `theme.screenOnly: true`
+  removes it.
 - `theme.template`: `editorial`, `showcase`, `magazine`, `storyboard`,
   `dynamic`, or your own layout sequence from `classic`, `copy-below`, `hero`,
   `offset`, `tilt`, `tilt-right`, `duo`, `duo-tilt`, `panorama`,

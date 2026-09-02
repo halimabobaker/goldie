@@ -25,7 +25,7 @@ export type Decoration =
 export type LayoutEntry = { key: string; label: string; description: string; span: number };
 export type TemplateEntry = { key: string; label: string; description: string; sequence: string[] };
 
-/** Mirrors FrameGeometry in src/layouts.ts: a bezel image's box and the screen cutout inside it. */
+/** Mirrors FrameGeometry in src/frame.ts: a bezel image's box and the screen cutout inside it. */
 export type FrameGeometry = {
   width: number;
   height: number;
@@ -67,9 +67,10 @@ export type DeviceCaptures = {
 
 export type Design = {
   theme: Theme;
-  /** null when the config points at custom bezel art. */
-  frameVariant: string | null;
-  frameVariants: string[];
+  /** The bundled variant each device renders with; null when the config points at custom bezel art. */
+  frames: Record<string, string | null>;
+  /** Every bundled variant and the device it is drawn for. */
+  frameVariants: Array<{ key: string; device: string }>;
   customFrameUrl: string | null;
   /** Bundled typefaces with the @font-face sources to declare. */
   fonts: BundledFont[];
@@ -127,7 +128,7 @@ export async function loadManifest(): Promise<StoreManifest> {
     );
   }
   const manifest: StoreManifest = await res.json();
-  if (!manifest.design?.fonts || !manifest.design.layouts) {
+  if (!manifest.design?.fonts || !manifest.design.layouts || !manifest.design.frames) {
     throw new ManifestError(
       "out/store.json predates browser-side composition. Regenerate it.",
       "goldie manifest",
@@ -148,7 +149,10 @@ export async function loadManifest(): Promise<StoreManifest> {
 /** The design choices saved on disk next to the config; see src/studio-server.ts. */
 export type SavedDesign = {
   background?: string;
+  /** One variant for the device it is drawn for; written by older studios. */
   frame?: string;
+  /** A bezel variant per device key. */
+  frames?: Record<string, string>;
   fontFamily?: string;
   /** Copy edited in the lightbox, per screenshot scene id, then locale. */
   copy?: Record<string, SceneCopy>;

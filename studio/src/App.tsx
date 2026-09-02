@@ -123,10 +123,7 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
     key && design.layouts.some((l) => l.key === key) ? key : undefined;
   const { state, set } = useHistory<DesignState>(() => ({
     background: saved.background ?? design.theme.background,
-    frame:
-      saved.frame && design.frameVariants.includes(saved.frame)
-        ? saved.frame
-        : (design.frameVariant ?? ""),
+    frames: initialFrames(design, saved),
     fontFamily: saved.fontFamily ?? design.theme.fontFamily,
     copy: saved.copy ?? {},
     layout: knownLayout(saved.layout) ?? design.layout,
@@ -135,8 +132,17 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
     sceneLayouts: initialSceneLayouts(design, saved, knownLayout),
     order: initialOrder(design, saved),
   }));
-  const { background, frame, fontFamily, copy, layout, template, screenOnly, sceneLayouts, order } =
-    state;
+  const {
+    background,
+    frames,
+    fontFamily,
+    copy,
+    layout,
+    template,
+    screenOnly,
+    sceneLayouts,
+    order,
+  } = state;
   // Each setter names its field so a burst of edits to one control (a drag
   // on the gradient picker) collapses into a single undo step.
   const field =
@@ -144,7 +150,10 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
     (value: DesignState[K]) =>
       set(key, (prev) => ({ ...prev, [key]: value }));
   const setBackground = field("background");
-  const setFrame = field("frame");
+  // The frame picker edits the variant of the device on show; "" means custom art.
+  const frame = frames[device] ?? "";
+  const setFrame = (value: string) =>
+    set(`frame:${device}`, (prev) => ({ ...prev, frames: { ...prev.frames, [device]: value } }));
   const setFontFamily = field("fontFamily");
   const setLayout = field("layout");
   // Picking a template replaces the strip's layout sequence, so any per-scene
@@ -189,9 +198,10 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       return;
     }
     const timer = setTimeout(() => {
+      const chosen = Object.fromEntries(Object.entries(frames).filter(([, v]) => v));
       saveDesign({
         background,
-        frame: frame || undefined,
+        frames: Object.keys(chosen).length > 0 ? chosen : undefined,
         fontFamily,
         copy: Object.keys(copy).length > 0 ? copy : undefined,
         order: order.length > 0 ? order : undefined,
@@ -205,7 +215,7 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       );
     }, SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [background, frame, fontFamily, copy, order, template, layout, screenOnly, sceneLayouts]);
+  }, [background, frames, fontFamily, copy, order, template, layout, screenOnly, sceneLayouts]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -232,9 +242,10 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
   const spec = platformDevices.find((d) => d.key === device) ?? platformDevices[0];
   const captures = spec ? design.captures[spec.key] : undefined;
+  const firstVariant = design.frameVariants.find((v) => v.device === device)?.key;
   const frameUrl = frame
     ? `frames/${frame}.png`
-    : (design.customFrameUrl ?? `frames/${design.frameVariants[0]}.png`);
+    : (design.customFrameUrl ?? `frames/${firstVariant ?? design.frameVariants[0]?.key}.png`);
 
   return (
     <div className="flex h-full bg-stage p-3 text-foreground">
@@ -250,6 +261,7 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         onDark={setDark}
         background={background}
         frame={frame}
+        frames={frames}
         fontFamily={fontFamily}
         template={template}
         layout={layout}
@@ -310,7 +322,8 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
 /** Everything the undo stack tracks: the design choices saved to goldie.design.json. */
 type DesignState = {
   background: string;
-  frame: string;
+  /** Bezel variant per device key; "" or absent means the config's custom art. */
+  frames: Record<string, string>;
   fontFamily: string;
   copy: Record<string, SceneCopy>;
   layout: string;
@@ -322,6 +335,23 @@ type DesignState = {
   /** Screenshot scene ids as arranged by dragging tiles; empty means the config's order. */
   order: string[];
 };
+
+/** The saved variant per device when it is drawn for that device, else the config's. */
+function initialFrames(design: Design, saved: SavedDesign): Record<string, string> {
+  const known = (device: string, key: string | undefined) =>
+    key && design.frameVariants.some((v) => v.key === key && v.device === device) ? key : undefined;
+  const out: Record<string, string> = {};
+  for (const [device, variant] of Object.entries(design.frames)) {
+    const legacy = design.frameVariants.find((v) => v.key === saved.frame)?.device;
+    const pick =
+      known(device, saved.frames?.[device]) ??
+      (legacy === device ? saved.frame : undefined) ??
+      variant ??
+      "";
+    out[device] = pick;
+  }
+  return out;
+}
 
 function initialTemplate(design: Design, saved: SavedDesign): string {
   if (saved.template !== undefined && design.templates.some((t) => t.key === saved.template))

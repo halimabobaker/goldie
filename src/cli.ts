@@ -5,9 +5,12 @@ import { fileURLToPath } from "node:url";
 import { capture } from "./capture.ts";
 import {
   applyDesign,
+  FRAME_VARIANTS,
   type FrameVariant,
+  isFrameVariant,
   type LoadedConfig,
   loadConfig,
+  VARIANT_DEVICE,
   validateLayouts,
 } from "./config.ts";
 import * as device from "./device.ts";
@@ -17,7 +20,7 @@ import { LAYOUT_KEYS, type LayoutKey, TEMPLATE_KEYS } from "./layouts.ts";
 import { writeManifest } from "./manifest.ts";
 import { renderPreview, renderScreenshots, verify } from "./render.ts";
 import { FlowFailure, repairBrief } from "./repair.ts";
-import type { DeviceKey } from "./specs.ts";
+import { DEVICE_KEYS, type DeviceKey, isDeviceKey } from "./specs.ts";
 import { openInBrowser, serveStudio, studioPaths } from "./studio-server.ts";
 
 const USAGE = `
@@ -35,10 +38,10 @@ goldie - App Store screenshots and previews, driven by argent
 
 Options
   --config <path>   Config file (default ./goldie.config.ts)
-  --device <key>    Only this device key (default: every device in the config)
+  --device <key>    Only this device key (${DEVICE_KEYS.join(" | ")}; default: every device in the config)
   --locale <code>   Only this locale (default: every locale in the config)
   --background <css>  Override theme.background for this run (also clears per-scene backgrounds); "transparent" keeps alpha
-  --frame <variant>   Override the screenshot bezel variant for this run (17-pro-silver | 17-pro-blue | 17-pro-orange)
+  --frame <variant>   Override the bezel variant of its device for this run, repeatable (${FRAME_VARIANTS.join(" | ")})
   --font <key>        Override theme.fontFamily for this run (system | ${FONT_KEYS.join(" | ")})
   --template <key>    Override theme.template for this run (${TEMPLATE_KEYS.join(" | ")}; "none" for one layout)
   --layout <key>      Override theme.layout for this run (${LAYOUT_KEYS.join(" | ")})
@@ -68,9 +71,20 @@ async function main() {
   // One-run overrides on top of the config and goldie.design.json (the
   // studio's saved choices). Copy a value into the config to keep it.
   const font = opt("font");
+  const frames: Partial<Record<DeviceKey, FrameVariant>> = {};
+  argv.forEach((arg, i) => {
+    const variant = argv[i + 1];
+    if (arg !== "--frame" || variant === undefined) return;
+    if (!isFrameVariant(variant)) {
+      throw new Error(
+        `Unknown frame variant "${variant}". Available: ${FRAME_VARIANTS.join(", ")}`,
+      );
+    }
+    frames[VARIANT_DEVICE[variant]] = variant;
+  });
   applyDesign(cfg, {
     background: opt("background"),
-    frame: opt("frame") as FrameVariant | undefined,
+    frames,
     fontFamily: font ? fontStack(font) : undefined, // throws on an unknown key
     template: opt("template") === "none" ? "" : opt("template"),
     layout: opt("layout") as LayoutKey | undefined,
@@ -78,7 +92,11 @@ async function main() {
   });
   validateLayouts(cfg);
 
-  const devices = (opt("device") ? [opt("device") as DeviceKey] : cfg.devices) as DeviceKey[];
+  const only = opt("device");
+  if (only !== undefined && !isDeviceKey(only)) {
+    throw new Error(`Unknown device "${only}". Available: ${DEVICE_KEYS.join(", ")}`);
+  }
+  const devices = only ? [only] : cfg.devices;
   const locales = opt("locale") ? [opt("locale")!] : cfg.locales;
 
   switch (command) {

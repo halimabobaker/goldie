@@ -56,6 +56,7 @@ export function Sidebar({
   onDark,
   background,
   frame,
+  frames,
   fontFamily,
   template,
   layout,
@@ -77,7 +78,9 @@ export function Sidebar({
   onLocale: (v: string) => void;
   onDark: (v: boolean) => void;
   background: string;
+  /** The bezel variant of the device on show, and every device's. */
   frame: string;
+  frames: Record<string, string>;
   fontFamily: string;
   template: string;
   layout: string;
@@ -168,6 +171,7 @@ export function Sidebar({
         ) : null}
         <DesignPanel
           design={manifest.design}
+          device={device}
           deviceFrame={
             platform === "android" || Boolean(platformDevices.find((d) => d.key === device)?.frame)
           }
@@ -189,7 +193,7 @@ export function Sidebar({
       <footer className="shrink-0 bg-sidebar p-4">
         <ExportPanel
           background={background}
-          frame={frame}
+          frames={frames}
           font={fontKey(manifest.design, fontFamily)}
           template={template}
           layout={layout}

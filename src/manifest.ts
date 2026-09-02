@@ -1,4 +1,15 @@
-import { copyFile, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import type { CaptureManifest } from "./capture.ts";
 import {
@@ -6,15 +17,19 @@ import {
   deviceFrame,
   FRAME_VARIANTS,
   framePath,
+  frameVariantFor,
   isPreview,
   isScreenshot,
   type LoadedConfig,
   type Theme,
+  VARIANT_DEVICE,
   variantFramePath,
 } from "./config.ts";
 import { execOrThrow } from "./exec.ts";
 import { FONTS, fontFilePath } from "./fonts.ts";
-import { type FrameGeometry, LAYOUTS, TEMPLATES } from "./layouts.ts";
+import type { FrameGeometry } from "./frame.ts";
+import { imageSize } from "./image.ts";
+import { LAYOUTS, TEMPLATES } from "./layouts.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 
 /**
@@ -61,10 +76,11 @@ export type StoreManifest = {
   /** Everything the studio needs to composite scenes in the browser. */
   design: {
     theme: Theme;
-    /** null when the config points at custom bezel art. */
-    frameVariant: string | null;
-    frameVariants: string[];
-    /** Url of the config's custom bezel art; null when a bundled variant is used. */
+    /** The bundled variant each device renders with; null when the config points at custom bezel art. */
+    frames: Record<string, string | null>;
+    /** Every bundled variant and the device it is drawn for. */
+    frameVariants: Array<{ key: string; device: string }>;
+    /** Url of the config's custom bezel art; null when bundled variants are used. */
     customFrameUrl: string | null;
     /** Bundled typefaces, with the @font-face sources the studio declares. */
     fonts: Array<{
@@ -137,11 +153,15 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   // frames never waits on a server.
   const framesDir = join(webDir, "frames");
   await mkdir(framesDir, { recursive: true });
+  const frameVariants: StoreManifest["design"]["frameVariants"] = [];
   for (const variant of FRAME_VARIANTS) {
     await copyFile(variantFramePath(variant), join(framesDir, `${variant}.png`));
+    frameVariants.push({ key: variant, device: VARIANT_DEVICE[variant] });
   }
   const custom = "variant" in cfg.frame ? null : "frames/custom.png";
   if (custom) await copyFile(framePath(cfg), join(webDir, custom));
+  const frames: StoreManifest["design"]["frames"] = {};
+  for (const device of cfg.devices) frames[device] = frameVariantFor(cfg, device);
 
   // Bezel art a device brings itself, copied under its device key: the
   // android Pixel art, which the frame picker does not apply to.
@@ -249,8 +269,8 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
     assets,
     design: {
       theme: cfg.theme,
-      frameVariant: "variant" in cfg.frame ? cfg.frame.variant : null,
-      frameVariants: [...FRAME_VARIANTS],
+      frames,
+      frameVariants,
       customFrameUrl: custom,
       fonts,
       layouts: Object.values(LAYOUTS).map(({ key, label, description, span }) => ({
@@ -334,18 +354,24 @@ async function collect(
 
 const ls = async (dir: string) => readdir(dir).catch(() => [] as string[]);
 
-/** Relative symlink, replaced on every run so a moved out/ never goes stale. */
+/**
+ * Directory link, replaced on every run so a moved out/ never goes stale.
+ * A relative symlink on macOS and Linux. On Windows a directory symlink needs
+ * Developer Mode or a privilege most accounts lack, so an NTFS junction is
+ * used instead; junctions need an absolute target and no special rights.
+ */
 async function link(target: string, path: string): Promise<void> {
-  await rm(path, { recursive: true, force: true });
-  await symlink(relative(dirname(path), target), path, "dir");
-}
-
-async function imageSize(file: string) {
-  const r = await execOrThrow("sips", ["-g", "pixelWidth", "-g", "pixelHeight", file]);
-  return {
-    width: Number(r.stdout.match(/pixelWidth:\s*(\d+)/)?.[1]),
-    height: Number(r.stdout.match(/pixelHeight:\s*(\d+)/)?.[1]),
-  };
+  // Unlink an existing link by name; a recursive rm must never follow a
+  // junction into the real captures on a rerun.
+  const existing = await lstat(path).catch(() => null);
+  if (existing?.isSymbolicLink()) await unlink(path);
+  else if (existing) await rm(path, { recursive: true, force: true });
+  if (process.platform === "win32") {
+    await mkdir(target, { recursive: true }); // a junction to a missing dir is dangling
+    await symlink(resolve(target), path, "junction");
+  } else {
+    await symlink(relative(dirname(path), target), path, "dir");
+  }
 }
 
 async function videoInfo(file: string) {
