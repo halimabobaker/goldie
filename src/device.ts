@@ -106,16 +106,29 @@ export async function matchingAvds(key: DeviceKey): Promise<string[]> {
   return findAvdsForProfiles(DEVICES[key].avdDeviceNames!);
 }
 
+/** Where Android Studio installs the SDK by default on each host. */
+function defaultSdkRoot(): string {
+  switch (process.platform) {
+    case "darwin":
+      return join(homedir(), "Library", "Android", "sdk");
+    case "win32":
+      return join(
+        process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"),
+        "Android",
+        "Sdk",
+      );
+    default:
+      return join(homedir(), "Android", "Sdk");
+  }
+}
+
 /** The emulator launcher inside the Android SDK, or null when no SDK is found. */
 function emulatorBinary(): string | null {
-  const roots = [
-    process.env.ANDROID_HOME,
-    process.env.ANDROID_SDK_ROOT,
-    join(homedir(), "Library", "Android", "sdk"),
-  ];
+  const roots = [process.env.ANDROID_HOME, process.env.ANDROID_SDK_ROOT, defaultSdkRoot()];
+  const name = process.platform === "win32" ? "emulator.exe" : "emulator";
   for (const root of roots) {
     if (!root) continue;
-    const bin = join(root, "emulator", "emulator");
+    const bin = join(root, "emulator", name);
     if (existsSync(bin)) return bin;
   }
   return null;

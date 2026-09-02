@@ -9,7 +9,7 @@ import {
   type PreviewScene,
 } from "./config.ts";
 import * as device from "./device.ts";
-import { execOrThrow } from "./exec.ts";
+import { imageSize } from "./image.ts";
 import { FlowFailure } from "./repair.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 
@@ -179,14 +179,6 @@ async function captureSegments(
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function imageSize(file: string): Promise<{ width: number; height: number }> {
-  const r = await execOrThrow("sips", ["-g", "pixelWidth", "-g", "pixelHeight", file]);
-  return {
-    width: Number(r.stdout.match(/pixelWidth:\s*(\d+)/)?.[1]),
-    height: Number(r.stdout.match(/pixelHeight:\s*(\d+)/)?.[1]),
-  };
-}
 
 async function assertSize(file: string, width: number, height: number): Promise<void> {
   const got = await imageSize(file);

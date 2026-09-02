@@ -17,8 +17,9 @@ import {
   resolvedScenes,
   type Theme,
 } from "./config.ts";
-import { exec, execOrThrow } from "./exec.ts";
+import { execOrThrow } from "./exec.ts";
 import { registerFonts, withGlyphFallback } from "./fonts.ts";
+import { pngInfo } from "./image.ts";
 import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
 
@@ -570,20 +571,8 @@ export async function verify(
   let ok = true;
 
   const shotDir = join(cfg.outDir, "screenshots", deviceKey, locale);
-  const shots = await exec("sh", ["-c", `ls ${shotDir}/*.png 2>/dev/null`], { quiet: true });
-  for (const file of shots.stdout.split("\n").filter(Boolean)) {
-    const r = await execOrThrow("sips", [
-      "-g",
-      "pixelWidth",
-      "-g",
-      "pixelHeight",
-      "-g",
-      "hasAlpha",
-      file,
-    ]);
-    const width = Number(r.stdout.match(/pixelWidth:\s*(\d+)/)?.[1]);
-    const height = Number(r.stdout.match(/pixelHeight:\s*(\d+)/)?.[1]);
-    const alpha = /hasAlpha:\s*yes/.test(r.stdout);
+  for (const file of await filesWithExt(shotDir, ".png")) {
+    const { width, height, hasAlpha: alpha } = await pngInfo(file);
     // A transparent theme background keeps its alpha on purpose.
     const alphaOk = !alpha || isTransparent(cfg.theme.background);
     const good = width === spec.screenshot.width && height === spec.screenshot.height && alphaOk;
@@ -600,8 +589,7 @@ export async function verify(
   if (!previewSpec) return ok;
 
   const previewDir = join(cfg.outDir, "previews", deviceKey, locale);
-  const videos = await exec("sh", ["-c", `ls ${previewDir}/*.mp4 2>/dev/null`], { quiet: true });
-  for (const file of videos.stdout.split("\n").filter(Boolean)) {
+  for (const file of await filesWithExt(previewDir, ".mp4")) {
     const r = await execOrThrow("ffprobe", [
       "-v",
       "error",
@@ -652,6 +640,15 @@ export async function verify(
   }
 
   return ok;
+}
+
+/** Absolute paths of the files in `dir` with the extension, sorted; empty when the dir is missing. */
+async function filesWithExt(dir: string, ext: string): Promise<string[]> {
+  const names = await readdir(dir).catch(() => [] as string[]);
+  return names
+    .filter((n) => n.endsWith(ext))
+    .sort()
+    .map((n) => join(dir, n));
 }
 
 const evalRatio = (r: string) => {

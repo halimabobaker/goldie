@@ -6,6 +6,13 @@ import * as device from "./device.ts";
 import { exec } from "./exec.ts";
 import { DEVICES } from "./specs.ts";
 
+const FFMPEG_INSTALL =
+  process.platform === "darwin"
+    ? "brew install ffmpeg"
+    : process.platform === "win32"
+      ? "winget install ffmpeg   (or choco install ffmpeg), then reopen the terminal"
+      : "sudo apt install ffmpeg   (or your distro's package)";
+
 type Check = { name: string; ok: boolean; detail: string; fix?: string; warnOnly?: boolean };
 
 async function onPath(bin: string, args: string[] = ["--version"]): Promise<boolean> {
@@ -17,9 +24,17 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
   const platforms = new Set(cfg.devices.map((key) => DEVICES[key].platform));
 
   if (platforms.has("ios")) {
+    // iOS simulators exist only on macOS; say so before xcrun reports missing.
+    const mac = process.platform === "darwin";
+    checks.push({
+      name: "macOS host",
+      ok: mac,
+      detail: mac ? process.platform : `${process.platform}: iOS simulators run only on macOS`,
+      fix: "Run goldie on a Mac, or keep only android devices (pixel-10-pro) in `devices`",
+    });
     checks.push({
       name: "xcrun",
-      ok: await onPath("xcrun", ["simctl", "help"]),
+      ok: mac && (await onPath("xcrun", ["simctl", "help"])),
       detail: "iOS simulator control",
       fix: "Install Xcode and run: xcode-select --install",
     });
@@ -29,20 +44,20 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
       name: "adb",
       ok: await onPath("adb", ["version"]),
       detail: "Android emulator control",
-      fix: "Install Android platform-tools and put adb on the PATH",
+      fix: "Install Android platform-tools and put adb on the PATH (Android Studio > SDK Manager)",
     });
   }
   checks.push({
     name: "ffmpeg",
     ok: await onPath("ffmpeg", ["-version"]),
     detail: "recording and pixel-format conversion",
-    fix: "brew install ffmpeg",
+    fix: FFMPEG_INSTALL,
   });
   checks.push({
     name: "ffprobe",
     ok: await onPath("ffprobe", ["-version"]),
     detail: "output verification",
-    fix: "brew install ffmpeg",
+    fix: FFMPEG_INSTALL,
   });
   checks.push({
     name: "argent",
@@ -147,7 +162,7 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     name: "flows dir",
     ok: existsSync(cfg.flowsDir),
     detail: cfg.flowsDir,
-    fix: `mkdir -p ${cfg.flowsDir}   (or set flowsDir in goldie.config.ts)`,
+    fix: `Create ${cfg.flowsDir}   (or set flowsDir in goldie.config.ts)`,
   });
 
   for (const scene of cfg.scenes) {
