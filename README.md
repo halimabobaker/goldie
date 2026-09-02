@@ -104,6 +104,19 @@ renders the same result. The config also takes:
   `panorama-duo`, `minimal`.
 - `theme.fontFamily`: a CSS font stack. Merriweather, DM Mono, Lato, DM Sans,
   Montserrat and Noto Sans SC (Simplified Chinese) are bundled.
+- `theme.fontFiles`: typefaces of your own, registered alongside the bundled
+  ones so `fontFamily` can name them. Needed for a brand font, and for any
+  script the bundled families do not cover - the copy is drawn with skia, not a
+  browser, so an unregistered family exports as tofu boxes rather than falling
+  back. Paths are relative to the config.
+
+  ```ts
+  fontFiles: [
+    { family: "Zain", files: { 400: "../assets/fonts/Zain-Regular.ttf",
+                               700: "../assets/fonts/Zain-Bold.ttf" } },
+  ],
+  fontFamily: "Zain",
+  ```
 - `decorations`: badges or images layered behind the device.
 
 ## Remarks

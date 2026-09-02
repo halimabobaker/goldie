@@ -87,15 +87,44 @@ export function withGlyphFallback(stack: string): string {
   return stack.includes(cjk) ? stack : `${stack}, "${cjk}"`;
 }
 
-let registered = false;
+/**
+ * A typeface the config supplies itself (`theme.fontFiles`), rather than one of
+ * the bundled ones. `files` holds absolute paths by weight, resolved from the
+ * config's directory when the config is loaded.
+ */
+export type CustomFont = {
+  family: string;
+  files: Record<number, string>;
+};
 
-/** Makes every bundled font available to the canvas. Safe to call repeatedly. */
-export function registerFonts() {
-  if (registered) return;
-  registered = true;
-  for (const font of Object.values(FONTS)) {
+let registered = false;
+const registeredCustom = new Set<string>();
+
+/**
+ * Makes every bundled font available to the canvas, plus any the config brought
+ * with it. Safe to call repeatedly: each file is registered once.
+ */
+export function registerFonts(custom: CustomFont[] = []) {
+  if (!registered) {
+    registered = true;
+    for (const font of Object.values(FONTS)) {
+      for (const file of Object.values(font.files)) {
+        GlobalFonts.registerFromPath(fontFilePath(file), font.family);
+      }
+    }
+  }
+  for (const font of custom) {
     for (const file of Object.values(font.files)) {
-      GlobalFonts.registerFromPath(fontFilePath(file), font.family);
+      const key = `${font.family}\u0000${file}`;
+      if (registeredCustom.has(key)) continue;
+      registeredCustom.add(key);
+      if (!GlobalFonts.registerFromPath(file, font.family)) {
+        throw new Error(
+          `Could not register font file "${file}" as "${font.family}". ` +
+            `Check theme.fontFiles in the config: the path is resolved against ` +
+            `the config file, and the file must be a format skia can read (ttf, otf).`,
+        );
+      }
     }
   }
 }
