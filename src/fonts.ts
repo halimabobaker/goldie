@@ -51,6 +51,11 @@ export const FONTS = {
     fallback: '"PingFang SC", "Microsoft YaHei", sans-serif',
     files: { 400: "NotoSansSC-400.otf", 700: "NotoSansSC-700.otf" },
   },
+  "noto-sans-arabic": {
+    family: "Noto Sans Arabic",
+    fallback: '"Geeza Pro", "Segoe UI", sans-serif',
+    files: { 400: "NotoSansArabic-400.ttf", 700: "NotoSansArabic-700.ttf" },
+  },
 } as const satisfies Record<string, BundledFont>;
 
 export type FontKey = keyof typeof FONTS;
@@ -83,9 +88,19 @@ export function fontStack(key: string): string {
  * chosen face and only characters the stack cannot draw reach the fallback.
  */
 export function withGlyphFallback(stack: string): string {
-  const cjk = FONTS["noto-sans-sc"].family;
-  return stack.includes(cjk) ? stack : `${stack}, "${cjk}"`;
+  for (const key of GLYPH_FALLBACKS) {
+    const { family } = FONTS[key];
+    if (!stack.includes(family)) stack = `${stack}, "${family}"`;
+  }
+  return stack;
 }
+
+/**
+ * The bundled faces appended to every canvas font string, in order, as a
+ * per-glyph last resort. Skia falls through per glyph, so latin text keeps the
+ * chosen face and only characters the stack cannot draw reach these.
+ */
+const GLYPH_FALLBACKS = ["noto-sans-sc", "noto-sans-arabic"] as const;
 
 /**
  * A typeface the config supplies itself (`theme.fontFiles`), rather than one of

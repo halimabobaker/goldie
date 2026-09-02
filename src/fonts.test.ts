@@ -5,13 +5,22 @@ import { join } from "node:path";
 import { FONTS, fontFilePath, registerFonts, withGlyphFallback } from "./fonts.ts";
 
 describe("withGlyphFallback", () => {
-  test("appends the CJK face so unknown glyphs have somewhere to fall", () => {
-    expect(withGlyphFallback("Lato")).toBe(`Lato, "${FONTS["noto-sans-sc"].family}"`);
+  test("appends both bundled fallbacks so unknown glyphs have somewhere to fall", () => {
+    const sc = FONTS["noto-sans-sc"].family;
+    const arabic = FONTS["noto-sans-arabic"].family;
+    expect(withGlyphFallback("Lato")).toBe(`Lato, "${sc}", "${arabic}"`);
   });
 
-  test("does not append it twice", () => {
+  test("does not append a face twice", () => {
     const once = withGlyphFallback("Lato");
     expect(withGlyphFallback(once)).toBe(once);
+  });
+
+  test("keeps a face the stack already names, and adds only the missing one", () => {
+    const arabic = FONTS["noto-sans-arabic"].family;
+    const stack = withGlyphFallback(`"${arabic}"`);
+    expect(stack.match(new RegExp(arabic, "g"))).toHaveLength(1);
+    expect(stack).toContain(FONTS["noto-sans-sc"].family);
   });
 });
 

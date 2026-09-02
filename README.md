@@ -103,7 +103,9 @@ renders the same result. The config also takes:
   `offset`, `tilt`, `tilt-right`, `duo`, `duo-tilt`, `panorama`,
   `panorama-duo`, `minimal`.
 - `theme.fontFamily`: a CSS font stack. Merriweather, DM Mono, Lato, DM Sans,
-  Montserrat and Noto Sans SC (Simplified Chinese) are bundled.
+  Montserrat, Noto Sans SC (Simplified Chinese) and Noto Sans Arabic are
+  bundled; the two Noto faces are also appended to every stack as a per-glyph
+  fallback, so Chinese and Arabic copy draws whatever font you name.
 - `theme.fontFiles`: typefaces of your own, registered alongside the bundled
   ones so `fontFamily` can name them. Needed for a brand font, and for any
   script the bundled families do not cover - the copy is drawn with skia, not a
