@@ -87,7 +87,10 @@ npx -y goldie@0 help
 ```
 
 Every command below is `npx -y goldie@0 <cmd>`, referred to as `goldie`.
-It needs Node 20+ and `ffmpeg` on the PATH (`brew install ffmpeg`). If
+It needs Node 20+ and `ffmpeg` on the PATH (`brew install ffmpeg` on macOS,
+`winget install ffmpeg` on Windows, `apt install ffmpeg` on Linux). iOS
+devices need a macOS host; on Linux and Windows only the Android device
+(`pixel-10-pro`) can run, so leave the iOS keys out of `devices` there. If
 `$GOLDIE_ROOT` is set, the user is working from a source checkout; run
 `bun $GOLDIE_ROOT/src/cli.ts <cmd>` instead. All app-specific files live in
 the app repo.

@@ -13,8 +13,13 @@ React Native and Kotlin Multiplatform apps.
 
 ## Install
 
-You need macOS with iOS simulators, Node 20 or newer, and ffmpeg. Google Play
-screenshots also need an Android emulator.
+You need Node 20 or newer and ffmpeg on the PATH. App Store screenshots need
+macOS with iOS simulators (Xcode). Google Play screenshots need an Android
+emulator, which works on macOS, Linux and Windows. On Linux, argent needs
+[a few extra packages](https://github.com/software-mansion/argent#linux-host-extra-prerequisites-for-android-emulators)
+for Android emulators. On a Linux or Windows machine keep only `pixel-10-pro`
+in `devices`; `goldie doctor` says so when an iOS device is configured on a
+host that cannot run it.
 
 Install the CLI:
 

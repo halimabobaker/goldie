@@ -15,6 +15,8 @@
     "ios",
     "simulator",
     "argent",
+    "android",
+    "google-play",
     "claude-skill"
   ],
   "type": "module",
@@ -44,7 +46,9 @@
     "node": ">=20.12.0"
   },
   "os": [
-    "darwin"
+    "darwin",
+    "linux",
+    "win32"
   ],
   "publishConfig": {
     "access": "public"
